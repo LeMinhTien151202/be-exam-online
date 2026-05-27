@@ -221,7 +221,7 @@ async function bootstrap() {
 
   // 5. Cấu hình CORS
   app.enableCors({
-    origin: true, // Hoặc chỉ định domain cụ thể của React Frontend
+    origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -244,8 +244,8 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`🚀 Server đang chạy tại: http://localhost:${port}`);
-  console.log(`📘 Tài liệu API Swagger: http://localhost:${port}/api/docs`);
+  console.log(`Server dang chay tai: http://localhost:${port}`);
+  console.log(`Tai lieu API Swagger: http://localhost:${port}/api/docs`);
 }
 bootstrap();
 ```
