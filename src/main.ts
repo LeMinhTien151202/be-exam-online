@@ -1,4 +1,6 @@
 import { NestFactory, Reflector } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { VersioningType, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -6,8 +8,13 @@ import * as cookieParser from 'cookie-parser';
 import { TransformInterceptor } from './core/transform.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const reflector = app.get(Reflector);
+
+  // Serve file tĩnh khi dùng storage driver 'local' (dev): /uploads
+  if ((process.env.STORAGE_DRIVER || 'local') === 'local') {
+    app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  }
 
   // 1. Validation toàn cục
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));

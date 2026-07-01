@@ -8,6 +8,9 @@ import { AuthModule } from './auth/auth.module';
 import { ProfileModule } from './profile/profile.module';
 import { SkillsModule } from './skills/skills.module';
 import { MenusModule } from './menus/menus.module';
+import { QuestionBankModule } from './question-bank/question-bank.module';
+import { StorageModule } from './storage/storage.module';
+import { FilesModule } from './files/files.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 // import { RolesGuard } from './auth/roles.guard'; // TẠM TẮT check role
@@ -23,6 +26,9 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
     ProfileModule,
     SkillsModule,
     MenusModule,
+    QuestionBankModule,
+    StorageModule,
+    FilesModule,
   ],
   controllers: [AppController],
   providers: [
