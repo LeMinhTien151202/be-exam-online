@@ -1,9 +1,8 @@
-import { IsEmail, IsNotEmpty, IsEnum, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
 
-export class CreateUserDto {
-  @ApiProperty({ example: 'teacher1@test.com', description: 'Email của người dùng' })
+export class RegisterDto {
+  @ApiProperty({ example: 'student@test.com', description: 'Email đăng ký' })
   @IsEmail({}, { message: 'Email không đúng định dạng' })
   @IsNotEmpty({ message: 'Email không được để trống' })
   email: string;
@@ -13,11 +12,7 @@ export class CreateUserDto {
   @MinLength(6, { message: 'Mật khẩu phải chứa ít nhất 6 ký tự' })
   password: string;
 
-  @ApiProperty({ example: 'Giao Vien 1', description: 'Họ tên hiển thị' })
+  @ApiProperty({ example: 'Nguyen Van Test', description: 'Họ tên hiển thị' })
   @IsNotEmpty({ message: 'Họ tên không được để trống' })
   full_name: string;
-
-  @ApiProperty({ enum: Role, example: Role.TEACHER, description: 'Vai trò' })
-  @IsEnum(Role, { message: 'Vai trò không hợp lệ (ADMIN | TEACHER | STUDENT)' })
-  role: Role;
 }

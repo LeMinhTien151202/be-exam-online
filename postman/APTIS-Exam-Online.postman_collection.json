@@ -1,0 +1,353 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-0001-4a1a-9001-exam-online-p1",
+    "name": "APTIS Exam Online API (Phase 1: Auth + Users)",
+    "description": "Bộ test API Phase 1 (Auth + Users/Profile) cho hệ thống luyện thi APTIS.\n\n- Base: {{base_url}}/api/v1\n- Response bọc bởi TransformInterceptor: { code, success, message, messages, data, metaData }\n- Login tự lưu access_token vào environment. Chọn environment 'APTIS Exam Online - Local' trước khi chạy.\n\nLưu ý: collection bám theo thiết kế .docs/API_PLAN.md — nếu Phase 1 implement đổi field/route thì cập nhật lại.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{access_token}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Test chung cấp collection: chạy cho MỌI request.",
+          "let j;",
+          "pm.test('Response là JSON hợp lệ', function () {",
+          "  j = pm.response.json();",
+          "  pm.expect(j).to.be.an('object');",
+          "});",
+          "if (j) {",
+          "  pm.test('Đúng shape TransformInterceptor', function () {",
+          "    pm.expect(j).to.have.property('code');",
+          "    pm.expect(j).to.have.property('success');",
+          "    pm.expect(j).to.have.property('data');",
+          "    pm.expect(j).to.have.property('metaData');",
+          "  });",
+          "  pm.test('success = true', function () {",
+          "    pm.expect(j.success).to.eql(true);",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register (Public)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\",\n  \"full_name\": \"Nguyen Van Test\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "auth", "register" ]
+            },
+            "description": "Đăng ký tài khoản STUDENT mới (hash bcrypt, tạo kèm user_profiles)."
+          }
+        },
+        {
+          "name": "Login (Public) - auto lưu token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "auth", "login" ]
+            },
+            "description": "Đăng nhập bằng email (field 'username') + password. Trả access_token + set cookie httpOnly refresh_token. Script tự lưu token vào environment."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.test('Login trả access_token', function () {",
+                  "  pm.expect(j.data).to.have.property('access_token');",
+                  "});",
+                  "if (j.data && j.data.access_token) {",
+                  "  pm.environment.set('access_token', j.data.access_token);",
+                  "  console.log('Đã lưu access_token');",
+                  "}",
+                  "if (j.data && j.data.refresh_token) {",
+                  "  pm.environment.set('refresh_token', j.data.refresh_token);",
+                  "}",
+                  "if (j.data && j.data.user && j.data.user.id) {",
+                  "  pm.environment.set('user_id', j.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Admin - auto lưu token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "auth", "login" ]
+            },
+            "description": "Đăng nhập tài khoản ADMIN để test các endpoint /users."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.data && j.data.access_token) {",
+                  "  pm.environment.set('access_token', j.data.access_token);",
+                  "  console.log('Đã lưu access_token (ADMIN)');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Account (me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/account",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "auth", "account" ]
+            },
+            "description": "Thông tin user đang đăng nhập + role + menu được phép. Dùng Bearer {{access_token}}."
+          }
+        },
+        {
+          "name": "Refresh Token (cookie)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/refresh",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "auth", "refresh" ]
+            },
+            "description": "Cấp lại access token từ cookie refresh_token (Postman tự gửi cookie theo domain). Có thể thêm script lưu access_token mới tương tự Login."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.data && j.data.access_token) {",
+                  "  pm.environment.set('access_token', j.data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"{{test_password}}\",\n  \"newPassword\": \"123456new\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/change-password",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "auth", "change-password" ]
+            },
+            "description": "Đổi mật khẩu (verify mật khẩu cũ)."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "auth", "logout" ]
+            },
+            "description": "Thu hồi refresh token + clear cookie."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users (Admin)",
+      "item": [
+        {
+          "name": "List Users (pagination + filter)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users?page=1&limit=10&role=STUDENT&status=ACTIVE",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "users" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "role", "value": "STUDENT", "description": "ADMIN | TEACHER | STUDENT" },
+                { "key": "status", "value": "ACTIVE", "description": "ACTIVE | LOCKED" }
+              ]
+            },
+            "description": "Danh sách user có phân trang + filter. Cần token ADMIN. metaData chứa page/pageSize/total/totalPage."
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teacher1@test.com\",\n  \"password\": \"123456\",\n  \"full_name\": \"Giao Vien 1\",\n  \"role\": \"TEACHER\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "users" ]
+            },
+            "description": "ADMIN tạo user với role bất kỳ. Script lưu data.id vào user_id cho các request sau."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.data && j.data.id) {",
+                  "  pm.environment.set('user_id', j.data.id);",
+                  "  console.log('Đã lưu user_id = ' + j.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get User by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "users", "{{user_id}}" ]
+            },
+            "description": "Chi tiết 1 user + profile. Dùng {{user_id}} đã lưu từ Create User hoặc Login."
+          }
+        },
+        {
+          "name": "Update User (role/status)",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"STUDENT\",\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "users", "{{user_id}}" ]
+            },
+            "description": "Cập nhật role / status của user."
+          }
+        },
+        {
+          "name": "Lock User",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}/lock",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "users", "{{user_id}}", "lock" ]
+            },
+            "description": "Khóa tài khoản (users không có deleted_at → dùng status LOCKED thay cho xóa)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/profile/me",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "profile", "me" ]
+            },
+            "description": "Xem profile của chính mình (STUDENT/TEACHER)."
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Nguyen Van Test\",\n  \"avatar_url\": \"https://example.com/avatar.png\",\n  \"target_date\": \"2026-12-31\",\n  \"aptis_goal\": \"B2\",\n  \"school_name\": \"THPT ABC\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/profile/me",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "profile", "me" ]
+            },
+            "description": "Cập nhật profile. aptis_goal ∈ B1 | B2 | C."
+          }
+        }
+      ]
+    }
+  ]
+}

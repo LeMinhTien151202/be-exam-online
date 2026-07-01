@@ -23,8 +23,13 @@ export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> 
         const response = context.switchToHttp().getResponse();
         const customMessage = this.reflector.get<string>(RESPONSE_MESSAGE, context.getHandler()) || 'Thành công';
 
-        // Kiểm tra xem dữ liệu thô trả về từ Service/Controller có chứa cấu trúc phân trang hay không
-        const isPaginated = rawOutput && 'result' in rawOutput && 'page' in rawOutput;
+        // Kiểm tra xem dữ liệu thô trả về từ Service/Controller có chứa cấu trúc phân trang hay không.
+        // Guard typeof object: tránh dùng 'in' với string/number/null (sẽ ném TypeError).
+        const isPaginated =
+          typeof rawOutput === 'object' &&
+          rawOutput !== null &&
+          'result' in rawOutput &&
+          'page' in rawOutput;
 
         return {
           code: response.statusCode,
