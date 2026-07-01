@@ -1,13 +1,330 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
-generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-}
-
 datasource db {
   provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+}
+
+enum ExamType {
+  PART_PRACTICE
+  SKILL_FULL_SET
+  MOCK_TEST
+}
+
+enum QuestionType {
+  MC
+  ORDERING
+  WORD_BANK
+  HEADING_MATCH
+  SPEAKER_MATCH
+  ESSAY
+  RECORD
+}
+
+enum FileType {
+  PDF
+  VIDEO
+}
+
+enum NotificationType {
+  SYSTEM
+  EXAM_REMINDER
+  GRADE_RESULT
+}
+
+// ============================================================
+// PHÂN HỆ 1: NGƯỜI DÙNG & PHÂN QUYỀN
+// ============================================================
+
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique @db.VarChar(255)
+  passwordHash String        @map("password_hash") @db.VarChar(255)
+  role         Role
+  status       UserStatus    @default(ACTIVE)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  
+  // Relations
+  profile          UserProfile?
+  examAttempts     ExamAttempt[]
+  progress         StudentProgress[]
+  learningStreak   LearningStreak?
+  studyMaterials   StudyMaterial[]
+  notifications    Notification[]
+  examSetsCreated  ExamSet[]        @relation("ExamSetCreatedBy")
+  questionsCreated QuestionBank[]   @relation("QuestionCreatedBy")
+
+  @@map("users")
+}
+
+model UserProfile {
+  userId         Int       @id @map("user_id")
+  fullName       String    @map("full_name") @db.VarChar(100)
+  avatarUrl      String?   @map("avatar_url") @db.Text
+  targetDate     DateTime? @map("target_date") @db.Date
+  aptisGoal      String?   @map("aptis_goal") @db.VarChar(10)
+  schoolName     String?   @map("school_name") @db.VarChar(255)
+  overallMockAvg Int       @default(0) @map("overall_mock_avg")
+  
+  // Relations
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model SystemMenu {
+  id        Int          @id @default(autoincrement())
+  label     String       @db.VarChar(100)
+  path      String       @db.VarChar(255)
+  icon      String?      @db.VarChar(50)
+  parentId  Int?         @map("parent_id")
+  sortOrder Int          @default(0) @map("sort_order")
+  
+  // Relations
+  parent    SystemMenu?      @relation("MenuToMenu", fields: [parentId], references: [id])
+  children  SystemMenu[]     @relation("MenuToMenu")
+  roleAccess RoleMenuAccess[]
+
+  @@map("system_menus")
+}
+
+model RoleMenuAccess {
+  role   Role
+  menuId Int        @map("menu_id")
+  
+  // Relations
+  menu   SystemMenu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@id([role, menuId])
+  @@map("role_menu_access")
+}
+
+// ============================================================
+// PHÂN HỆ 2: NGÂN HÀNG ĐỀ THI (EXAM BANK)
+// ============================================================
+
+model Skill {
+  id         Int      @id
+  name       String   @db.VarChar(50)
+  totalParts Int      @map("total_parts")
+  
+  // Relations
+  examSets        ExamSet[]
+  examSections    ExamSection[]
+  questionBanks   QuestionBank[]
+  studentProgress StudentProgress[]
+  studyMaterials  StudyMaterial[]
+
+  @@map("skills")
+}
+
+model ExamSet {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  type        ExamType
+  skillId     Int?      @map("skill_id")
+  partNumber  Int?      @map("part_number")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdBy   Int       @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamp(6)
+  
+  // Relations
+  skill       Skill?        @relation(fields: [skillId], references: [id])
+  creator     User          @relation("ExamSetCreatedBy", fields: [createdBy], references: [id])
+  sections    ExamSection[]
+  attempts    ExamAttempt[]
+
+  @@map("exam_sets")
+}
+
+model ExamSection {
+  id              Int      @id @default(autoincrement())
+  examId          Int      @map("exam_id")
+  skillId         Int      @map("skill_id")
+  durationMinutes Int      @map("duration_minutes")
+  orderIndex      Int      @map("order_index")
+  
+  // Relations
+  exam            ExamSet                  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  skill           Skill                    @relation(fields: [skillId], references: [id])
+  parts           ExamPart[]
+
+  @@map("exam_sections")
+}
+
+model ExamPart {
+  id          Int      @id @default(autoincrement())
+  sectionId   Int      @map("section_id")
+  partNumber  Int      @map("part_number")
+  instruction String?  @db.Text
+  audioUrl    String?  @map("audio_url") @db.Text
+  
+  // Relations
+  section     ExamSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  questions   ExamPartQuestion[]
+
+  @@map("exam_parts")
+}
+
+// ============================================================
+// PHÂN HỆ 3: NGÂN HÀNG CÂU HỎI (QUESTION BANK)
+// ============================================================
+
+model QuestionBank {
+  id           Int          @id @default(autoincrement())
+  skillId      Int          @map("skill_id")
+  partNumber   Int          @map("part_number")
+  content      String?      @db.Text
+  mediaUrl     String?      @map("media_url") @db.Text
+  questionType QuestionType @map("question_type")
+  extraConfig  Json?        @map("extra_config") @db.JsonB
+  createdBy    Int          @map("created_by")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamp(6)
+  
+  // Relations
+  skill            Skill                  @relation(fields: [skillId], references: [id])
+  creator          User                   @relation("QuestionCreatedBy", fields: [createdBy], references: [id])
+  options          QuestionBankOption[]
+  examParts        ExamPartQuestion[]
+
+  @@index([skillId, partNumber], map: "idx_qbank_skill_part")
+  @@index([extraConfig], map: "idx_qbank_extra_config", type: Gin)
+  @@map("question_bank")
+}
+
+model QuestionBankOption {
+  id         Int          @id @default(autoincrement())
+  questionId Int          @map("question_id")
+  content    String       @db.Text
+  isCorrect  Boolean      @map("is_correct")
+  
+  // Relations
+  question   QuestionBank @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("question_bank_options")
+}
+
+model ExamPartQuestion {
+  examPartId Int      @map("exam_part_id")
+  questionId Int      @map("question_id")
+  orderIndex Int      @default(0) @map("order_index")
+  
+  // Relations
+  examPart   ExamPart     @relation(fields: [examPartId], references: [id], onDelete: Cascade)
+  question   QuestionBank @relation(fields: [questionId], references: [id])
+
+  @@id([examPartId, questionId])
+  @@index([examPartId, orderIndex], map: "idx_exam_part_questions_part")
+  @@map("exam_part_questions")
+}
+
+// ============================================================
+// PHÂN HỆ 4: KẾT QUẢ & CHẤM ĐIỂM AI
+// ============================================================
+
+model ExamAttempt {
+  id         Int      @id @default(autoincrement())
+  studentId  Int      @map("student_id")
+  examId     Int      @map("exam_id")
+  status     String   @default("SUBMITTED") @db.VarChar(20)
+  totalScore Int      @map("total_score")
+  startedAt  DateTime @default(now()) @map("started_at") @db.Timestamp(6)
+  finishedAt DateTime @default(now()) @map("finished_at") @db.Timestamp(6)
+  
+  // Relations
+  student    User     @relation(fields: [studentId], references: [id])
+  exam       ExamSet  @relation(fields: [examId], references: [id])
+
+  @@index([studentId, status], map: "idx_attempts_student_status")
+  @@map("exam_attempts")
+}
+
+// ============================================================
+// PHÂN HỆ 5: TIẾN ĐỘ & PHỤ TRỢ
+// ============================================================
+
+model StudentProgress {
+  studentId         Int      @map("student_id")
+  skillId           Int      @map("skill_id")
+  partNumber        Int      @map("part_number")
+  questionsAnswered Int      @default(0) @map("questions_answered")
+  
+  // Relations
+  student           User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skill             Skill    @relation(fields: [skillId], references: [id])
+
+  @@id([studentId, skillId, partNumber])
+  @@index([studentId, skillId], map: "idx_progress_student")
+  @@map("student_progress")
+}
+
+model LearningStreak {
+  studentId     Int      @id @map("student_id")
+  currentStreak Int      @default(0) @map("current_streak")
+  longestStreak Int      @default(0) @map("longest_streak")
+  lastActivity  DateTime @default(now()) @map("last_activity") @db.Date
+  
+  // Relations
+  student       User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("learning_streaks")
+}
+
+model StudyMaterial {
+  id              Int       @id @default(autoincrement())
+  title           String    @db.VarChar(255)
+  fileUrl         String    @map("file_url") @db.Text
+  fileType        FileType  @map("file_type")
+  durationSeconds Int?      @map("duration_seconds")
+  skillId         Int?      @map("skill_id")
+  teacherId       Int       @map("teacher_id")
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamp(6)
+  
+  // Relations
+  skill           Skill?    @relation(fields: [skillId], references: [id])
+  teacher         User      @relation(fields: [teacherId], references: [id])
+
+  @@map("study_materials")
+}
+
+model Notification {
+  id               Int              @id @default(autoincrement())
+  receiverId       Int?             @map("receiver_id")
+  notificationType NotificationType @map("notification_type")
+  title            String           @db.VarChar(200)
+  message          String           @db.Text
+  isRead           Boolean          @default(false) @map("is_read")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
+  
+  // Relations
+  receiver         User?            @relation(fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([receiverId, isRead], map: "idx_notifications_receiver")
+  @@map("notifications")
+}
+
+model SystemSetting {
+  settingKey   String @id @map("setting_key") @db.VarChar(100)
+  settingValue String @map("setting_value") @db.Text
+
+  @@map("system_settings")
 }
