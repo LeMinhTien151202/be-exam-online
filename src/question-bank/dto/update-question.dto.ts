@@ -1,13 +1,5 @@
-import {
-  IsArray,
-  IsObject,
-  IsOptional,
-  IsString,
-  ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsObject, IsOptional, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { QuestionOptionDto } from './create-question.dto';
 
 // Không cho đổi skillId/partNumber/questionType khi update (giữ toàn vẹn cấu hình).
 export class UpdateQuestionDto {
@@ -21,15 +13,10 @@ export class UpdateQuestionDto {
   @IsString()
   mediaUrl?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Gồm cả đáp án MC (options) nếu là dạng MC',
+  })
   @IsOptional()
   @IsObject({ message: 'extraConfig phải là object' })
   extraConfig?: Record<string, unknown>;
-
-  @ApiPropertyOptional({ type: [QuestionOptionDto] })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => QuestionOptionDto)
-  options?: QuestionOptionDto[];
 }

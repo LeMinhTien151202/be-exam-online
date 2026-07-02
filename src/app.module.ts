@@ -9,6 +9,9 @@ import { ProfileModule } from './profile/profile.module';
 import { SkillsModule } from './skills/skills.module';
 import { MenusModule } from './menus/menus.module';
 import { QuestionBankModule } from './question-bank/question-bank.module';
+import { ExamSetsModule } from './exam-sets/exam-sets.module';
+import { ExamsModule } from './exams/exams.module';
+import { ProgressModule } from './progress/progress.module';
 import { StorageModule } from './storage/storage.module';
 import { FilesModule } from './files/files.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -27,6 +30,9 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
     SkillsModule,
     MenusModule,
     QuestionBankModule,
+    ExamSetsModule,
+    ExamsModule,
+    ProgressModule,
     StorageModule,
     FilesModule,
   ],

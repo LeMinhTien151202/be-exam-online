@@ -67,13 +67,15 @@
 | :-- | :-- | :-- | :-- |
 | GET | `/skills` | mọi role | 5 kỹ năng + `total_parts` (seed sẵn, read-only). |
 
-### 2.5. `question-bank/` — Ngân hàng câu hỏi *(bảng `question_bank`, `question_bank_options`)*
+### 2.5. `question-bank/` — Ngân hàng câu hỏi *(bảng `question_bank`)*
+> Đáp án MC nằm trong `extra_config.options` (đã bỏ bảng `question_bank_options`).
+
 | Method | Path | Quyền | Mô tả |
 | :-- | :-- | :-- | :-- |
-| POST | `/questions` | ADMIN/TEACHER | Tạo câu hỏi (transaction: question + options nếu MC). Validate `extra_config` theo `question_type`. |
+| POST | `/questions` | ADMIN/TEACHER | Tạo câu hỏi. Tự suy `question_type` từ (skill, part), validate `extra_config` theo type. |
 | GET | `/questions` | ADMIN/TEACHER | **Filter `skill_id` + `part_number` + `question_type`** (dùng khi assign vào đề) + pagination. |
-| GET | `/questions/:id` | ADMIN/TEACHER | Chi tiết + options + extra_config. |
-| PATCH | `/questions/:id` | ADMIN/TEACHER | Sửa nội dung/options/extra_config. |
+| GET | `/questions/:id` | ADMIN/TEACHER | Chi tiết + extra_config (kèm options MC). |
+| PATCH | `/questions/:id` | ADMIN/TEACHER | Sửa content/mediaUrl/extra_config. |
 | DELETE | `/questions/:id` | ADMIN/TEACHER | Soft delete (`deleted_at`). |
 
 > **Validate `extra_config` bắt buộc theo type** — xem mục 3.5.
@@ -179,7 +181,7 @@ Khi có hoạt động (submit practice/mock):
 
 ### 3.5. Validate `extra_config` theo `question_type` (khi tạo/sửa câu hỏi)
 Mapping part → type đã chốt (xem memory `aptis-skill-parts`). Mỗi type có schema `extra_config` riêng:
-- `MC`: `null` (MC đơn, dùng `question_bank_options`) **hoặc** gap-fill `{ gaps: [{gap_id, options[3], correct_index}] }` (Reading P1) / `{ choice_kind:"SPEAKER_AGREEMENT", correct }` (Listening P3) / `{ audio_group_id }` (Listening P4).
+- `MC`: MC đơn `{ options: [{content, is_correct}] }` (Grammar P1, Listening P1/P4) **hoặc** gap-fill `{ gaps: [{gap_id, options[3], correct_index}] }` (Reading P1) / `{ choice_kind:"SPEAKER_AGREEMENT", correct }` (Listening P3) / thêm `{ audio_group_id }` (Listening P4).
 - `ORDERING`: `{ fixed_first, options_pool, correct_order }`.
 - `WORD_BANK`: `{ task_variant: DEFINITION|COLLOCATION|SENTENCE|SYNONYM|ANTONYM, options_pool[10], slots[5] }`.
 - `HEADING_MATCH`: `{ paragraph_label, correct_heading, headings_pool }`.
@@ -228,7 +230,7 @@ GEMINI_MAX_RETRIES=2
 - Tách provider sau lớp `GeminiService` để dễ đổi model/nhà cung cấp về sau.
 
 ### 3.7. Ẩn đáp án khi học viên làm bài
-`GET /exams/:id/take` phải loại bỏ: `question_bank_options.is_correct`, và các khóa `correct_*` / `is_correct` trong `extra_config` (`correct_order`, `correct_answer`, `correct_heading`, `correct_opinion`, `correct_index`, `correct`).
+`GET /exams/:id/take` loại bỏ mọi khóa `is_correct` và `correct_*` trong `extra_config` (`options[].is_correct`, `correct_order`, `correct_answer`, `correct_heading`, `correct_person`, `correct_index`, `correct`...). Đã cài đặt bằng `stripAnswers()` đệ quy trong `src/exams/grading.ts`.
 
 ---
 

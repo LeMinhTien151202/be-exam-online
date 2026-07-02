@@ -31,7 +31,6 @@ export class QuestionBankService {
       content: dto.content,
       mediaUrl: dto.mediaUrl,
       extraConfig: dto.extraConfig,
-      options: dto.options,
     };
     cfg.validate(payload);
 
@@ -42,19 +41,10 @@ export class QuestionBankService {
         questionType: cfg.questionType, // tự suy ra, không nhận từ client
         content: dto.content,
         mediaUrl: dto.mediaUrl,
+        // Đáp án MC nằm trong extraConfig.options (không còn bảng riêng).
         extraConfig: (dto.extraConfig as Prisma.InputJsonValue) ?? undefined,
         createdBy: userId,
-        options:
-          cfg.usesOptions && dto.options?.length
-            ? {
-                create: dto.options.map((o) => ({
-                  content: o.content,
-                  isCorrect: o.isCorrect,
-                })),
-              }
-            : undefined,
       },
-      include: { options: true },
     });
   }
 
@@ -83,7 +73,6 @@ export class QuestionBankService {
         skip,
         take: limit,
         orderBy: { id: 'desc' },
-        include: { options: true },
       }),
       this.prisma.questionBank.count({ where }),
     ]);
@@ -100,7 +89,6 @@ export class QuestionBankService {
   async findOne(id: number) {
     const question = await this.prisma.questionBank.findFirst({
       where: { id, deletedAt: null },
-      include: { options: true },
     });
     if (!question) {
       throw new NotFoundException(`Không tìm thấy câu hỏi có ID = ${id}`);
@@ -113,46 +101,25 @@ export class QuestionBankService {
     const cfg = getPartConfig(existing.skillId, existing.partNumber);
 
     // Ghép dữ liệu mới với dữ liệu cũ rồi validate lại theo đúng cấu hình part.
-    const mergedOptions =
-      dto.options ??
-      existing.options.map((o) => ({
-        content: o.content,
-        isCorrect: o.isCorrect,
-      }));
     const payload: QuestionPayload = {
       content: dto.content ?? existing.content,
       mediaUrl: dto.mediaUrl ?? existing.mediaUrl,
       extraConfig:
         (dto.extraConfig as Record<string, unknown>) ??
         (existing.extraConfig as Record<string, unknown> | null),
-      options: mergedOptions,
     };
     cfg.validate(payload);
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.questionBank.update({
-        where: { id },
-        data: {
-          content: dto.content,
-          mediaUrl: dto.mediaUrl,
-          extraConfig:
-            dto.extraConfig !== undefined
-              ? (dto.extraConfig as Prisma.InputJsonValue)
-              : undefined,
-        },
-      });
-      // Nếu part dùng options và client gửi options mới → thay toàn bộ.
-      if (cfg.usesOptions && dto.options) {
-        await tx.questionBankOption.deleteMany({ where: { questionId: id } });
-        await tx.questionBankOption.createMany({
-          data: dto.options.map((o) => ({
-            questionId: id,
-            content: o.content,
-            isCorrect: o.isCorrect,
-          })),
-        });
-      }
-      return updated;
+    return this.prisma.questionBank.update({
+      where: { id },
+      data: {
+        content: dto.content,
+        mediaUrl: dto.mediaUrl,
+        extraConfig:
+          dto.extraConfig !== undefined
+            ? (dto.extraConfig as Prisma.InputJsonValue)
+            : undefined,
+      },
     });
   }
 

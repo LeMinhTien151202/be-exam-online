@@ -1,27 +1,5 @@
-import {
-  IsArray,
-  IsBoolean,
-  IsInt,
-  IsNotEmpty,
-  IsObject,
-  IsOptional,
-  IsString,
-  Min,
-  ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsInt, IsObject, IsOptional, IsString, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export class QuestionOptionDto {
-  @ApiProperty({ example: 'went' })
-  @IsNotEmpty({ message: 'Nội dung đáp án không được để trống' })
-  @IsString()
-  content: string;
-
-  @ApiProperty({ example: true })
-  @IsBoolean({ message: 'isCorrect phải là boolean' })
-  isCorrect: boolean;
-}
 
 export class CreateQuestionDto {
   @ApiProperty({ example: 3, description: 'ID kỹ năng (1-5)' })
@@ -48,19 +26,9 @@ export class CreateQuestionDto {
 
   @ApiPropertyOptional({
     description:
-      'Cấu hình đặc thù theo dạng câu hỏi (JSONB). Xem validator theo từng (skill, part).',
+      'Cấu hình đặc thù theo dạng câu hỏi (JSONB). Đáp án MC nằm ở extraConfig.options = [{ content, is_correct }]. Xem validator theo từng (skill, part).',
   })
   @IsOptional()
   @IsObject({ message: 'extraConfig phải là object' })
   extraConfig?: Record<string, unknown>;
-
-  @ApiPropertyOptional({
-    type: [QuestionOptionDto],
-    description: 'Đáp án cho MC thường (chỉ dùng cho các part dùng option)',
-  })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => QuestionOptionDto)
-  options?: QuestionOptionDto[];
 }

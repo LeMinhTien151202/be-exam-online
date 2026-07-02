@@ -203,24 +203,11 @@ model QuestionBank {
   // Relations
   skill            Skill                  @relation(fields: [skillId], references: [id])
   creator          User                   @relation("QuestionCreatedBy", fields: [createdBy], references: [id])
-  options          QuestionBankOption[]
   examParts        ExamPartQuestion[]
 
   @@index([skillId, partNumber], map: "idx_qbank_skill_part")
   @@index([extraConfig], map: "idx_qbank_extra_config", type: Gin)
   @@map("question_bank")
-}
-
-model QuestionBankOption {
-  id         Int          @id @default(autoincrement())
-  questionId Int          @map("question_id")
-  content    String       @db.Text
-  isCorrect  Boolean      @map("is_correct")
-  
-  // Relations
-  question   QuestionBank @relation(fields: [questionId], references: [id], onDelete: Cascade)
-
-  @@map("question_bank_options")
 }
 
 model ExamPartQuestion {

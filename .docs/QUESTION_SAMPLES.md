@@ -16,11 +16,13 @@
   "skillId": 1,
   "partNumber": 1,
   "content": "She ___ to school every day.",
-  "options": [
-    { "content": "go", "isCorrect": false },
-    { "content": "goes", "isCorrect": true },
-    { "content": "going", "isCorrect": false }
-  ]
+  "extraConfig": {
+    "options": [
+      { "content": "go", "is_correct": false },
+      { "content": "goes", "is_correct": true },
+      { "content": "going", "is_correct": false }
+    ]
+  }
 }
 ```
 
@@ -142,11 +144,13 @@
   "partNumber": 1,
   "content": "What time does the train leave?",
   "mediaUrl": "https://cdn.example.com/audio/listening-p1-q1.mp3",
-  "options": [
-    { "content": "7:15", "isCorrect": false },
-    { "content": "7:50", "isCorrect": true },
-    { "content": "8:15", "isCorrect": false }
-  ]
+  "extraConfig": {
+    "options": [
+      { "content": "7:15", "is_correct": false },
+      { "content": "7:50", "is_correct": true },
+      { "content": "8:15", "is_correct": false }
+    ]
+  }
 }
 ```
 
@@ -198,12 +202,14 @@
   "partNumber": 4,
   "content": "What is the main purpose of the lecture?",
   "mediaUrl": "https://cdn.example.com/audio/listening-p4-monologue1.mp3",
-  "options": [
-    { "content": "To warn about a risk", "isCorrect": false },
-    { "content": "To explain a discovery", "isCorrect": true },
-    { "content": "To advertise a product", "isCorrect": false }
-  ],
-  "extraConfig": { "audio_group_id": "g1" }
+  "extraConfig": {
+    "audio_group_id": "g1",
+    "options": [
+      { "content": "To warn about a risk", "is_correct": false },
+      { "content": "To explain a discovery", "is_correct": true },
+      { "content": "To advertise a product", "is_correct": false }
+    ]
+  }
 }
 ```
 
@@ -494,6 +500,6 @@
 ## Ghi chú validator (các lỗi hay gặp)
 - **Vocabulary (1-2)**: mỗi Task = 1 bản ghi WORD_BANK; đủ 5 task = 5 bản ghi (task_variant khác nhau). Mỗi `slot` cần `prompt` + `correct_answer`.
 - **Số lượng phần tử cố định**: WORD_BANK `options_pool`=10 & `slots`=5; ORDERING `options_pool`=6 & `correct_order`=6; gap-fill `gaps`=5 (mỗi gap `options`=3); Listening P2 `options_pool`=6 (câu văn) & `speakers`=4 (mỗi đáp án dùng 1 lần); Reading P4 `people`=4 & `questions`=7 (một người được chọn nhiều lần); Reading P5 cần `example` (câu 0) + `paragraphs`=7 & `headings_pool`=8 & `answers`=7.
-- **MC**: đúng số đáp án (mặc định 3) và **đúng 1** `isCorrect: true`.
+- **MC**: đáp án nằm trong `extraConfig.options` = `[{ content, is_correct }]`, đúng 3 đáp án và **đúng 1** `is_correct: true`. (Không còn bảng question_bank_options.)
 - **Khóa đáp án phải tồn tại**: `correct_answer`/`correct_opinion`/`correct_person`/`correct_heading` phải nằm trong pool/keys tương ứng; `correct_index` trong [0..2].
 - **Giá trị enum cố định**: RECORD `response_time_seconds`∈{30,45,120}, `prep_time_seconds`∈{0,60}, `image_count`∈{0,1,2} và `image_urls` phải có ĐÚNG `image_count` phần tử (Speaking P3 = 2 ảnh); Listening P3 `correct`∈{MAN,WOMAN,BOTH}; WORD_BANK `task_variant`∈{DEFINITION,COLLOCATION,SENTENCE,SYNONYM,ANTONYM}.

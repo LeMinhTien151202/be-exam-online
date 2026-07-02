@@ -163,7 +163,9 @@ audio_url TEXT -- Audio dùng chung cho cả Part (Listening P3, P4)
 --
 -- extra_config JSONB — metadata đặc thù theo question_type:
 --
--- 'MC' → null nếu MC đơn (1 câu hỏi, dùng question_bank_options)
+-- 'MC' → MC đơn (Grammar P1, Listening P1/P4): {
+--          "options": [ { "content": "...", "is_correct": true }, ... 3 đáp án, 1 đúng ]
+--        }
 --        HOẶC gap-fill (Reading Part 1): {
 --          "gaps": [
 --            { "gap_id": 1, "options": ["a","b","c"], "correct_index": 0 },
@@ -237,13 +239,8 @@ created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 deleted_at TIMESTAMP
 );
 
--- Đáp án cho câu hỏi MC (gắn vào question_bank, không phải exam)
-CREATE TABLE question_bank_options (
-id SERIAL PRIMARY KEY,
-question_id INT NOT NULL REFERENCES question_bank(id) ON DELETE CASCADE,
-content TEXT NOT NULL,
-is_correct BOOLEAN NOT NULL
-);
+-- (ĐÃ BỎ bảng question_bank_options — đáp án MC gom vào question_bank.extra_config.options
+--  = [{ "content": "...", "is_correct": true }, ...] cho nhất quán với các dạng khác.)
 
 -- ─────────────────────────────────────────────────────────────
 -- 3.2. Bảng exam_part_questions — gán câu hỏi vào đề (nhiều-nhiều)
@@ -371,11 +368,11 @@ CREATE INDEX idx_exam_part_questions_part ON exam_part_questions (exam_part_id, 
 --
 -- Auth & RBAC : users, user_profiles, system_menus, role_menu_access (4)
 -- Exam Bank : skills, exam_sets, exam_sections, exam_parts (4)
--- Question Bank : question_bank, question_bank_options, exam_part_questions (3)
+-- Question Bank : question_bank, exam_part_questions (2 — đã bỏ question_bank_options)
 -- Attempts : exam_attempts (1)
 -- Progress & Phụ : student_progress, learning_streaks, study_materials,
 -- notifications, system_settings (5)
 --
--- TỔNG : 17 bảng
+-- TỔNG : 16 bảng (đã bỏ question_bank_options — MC options vào extra_config)
 -- (Đã tối ưu siêu triệt để: Xóa lịch sử đáp án, snapshot, xóa AI grading tables, xóa logs)
 -- ============================================================

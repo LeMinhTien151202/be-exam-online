@@ -15,21 +15,14 @@ import { QuestionType } from '@prisma/client';
  *  Skill 5 Speaking:       P1..P4 RECORD
  */
 
-export interface QuestionOptionInput {
-  content: string;
-  isCorrect: boolean;
-}
-
 export interface QuestionPayload {
   content?: string | null;
   mediaUrl?: string | null;
   extraConfig?: Record<string, unknown> | null;
-  options?: QuestionOptionInput[];
 }
 
 export interface PartConfig {
   questionType: QuestionType;
-  usesOptions: boolean; // true = dùng bảng question_bank_options (MC thường)
   label: string;
   validate: (p: QuestionPayload) => void;
 }
@@ -85,19 +78,23 @@ const obj = (v: unknown, name: string): Record<string, unknown> => {
   return v as Record<string, unknown>;
 };
 
-// MC dùng question_bank_options: đúng `count` đáp án, đúng 1 đáp án đúng.
+// MC: đáp án nằm trong extra_config.options = [{ content, is_correct }].
+// Đúng `count` đáp án, đúng 1 đáp án đúng.
 function validateMcOptions(p: QuestionPayload, count = 3): void {
-  const o = p.options;
-  if (!Array.isArray(o) || o.length < 2) {
-    bad('MC cần ít nhất 2 đáp án (options)');
-  }
-  const opts = o as QuestionOptionInput[];
-  if (count && opts.length !== count) {
-    bad(`Phần này cần đúng ${count} đáp án`);
-  }
-  opts.forEach((x, i) => asString(x.content, `options[${i}].content`));
-  const correct = opts.filter((x) => x.isCorrect === true).length;
-  if (correct !== 1) bad('MC phải có đúng 1 đáp án đúng (isCorrect = true)');
+  const opts = asArray(ec(p).options, 'extra_config.options', {
+    min: count,
+    max: count,
+  });
+  let correct = 0;
+  opts.forEach((o, i) => {
+    const opt = obj(o, `options[${i}]`);
+    asString(opt.content, `options[${i}].content`);
+    if (typeof opt.is_correct !== 'boolean') {
+      bad(`options[${i}].is_correct phải là boolean`);
+    }
+    if (opt.is_correct === true) correct++;
+  });
+  if (correct !== 1) bad('MC phải có đúng 1 đáp án đúng (is_correct = true)');
 }
 
 // ───────────────────────── Validators theo dạng ─────────────────────────
@@ -327,69 +324,58 @@ const CONFIG: Record<string, PartConfig> = {
   // Grammar & Vocabulary
   '1-1': {
     questionType: QuestionType.MC,
-    usesOptions: true,
     label: 'Grammar Part 1',
     validate: validateMcPlain(false),
   },
   '1-2': {
     questionType: QuestionType.WORD_BANK,
-    usesOptions: false,
     label: 'Vocabulary Part 2',
     validate: validateWordBank,
   },
   // Listening
   '2-1': {
     questionType: QuestionType.MC,
-    usesOptions: true,
     label: 'Listening Part 1',
     validate: validateMcPlain(true),
   },
   '2-2': {
     questionType: QuestionType.SPEAKER_MATCH,
-    usesOptions: false,
     label: 'Listening Part 2',
     validate: validateListeningSpeakerMatch,
   },
   '2-3': {
     questionType: QuestionType.MC,
-    usesOptions: false,
     label: 'Listening Part 3',
     validate: validateAgreement,
   },
   '2-4': {
     questionType: QuestionType.MC,
-    usesOptions: true,
     label: 'Listening Part 4',
     validate: validateMonologueMc,
   },
   // Reading
   '3-1': {
     questionType: QuestionType.MC,
-    usesOptions: false,
     label: 'Reading Part 1',
     validate: validateGapFill,
   },
   '3-2': {
     questionType: QuestionType.ORDERING,
-    usesOptions: false,
     label: 'Reading Part 2',
     validate: validateOrdering,
   },
   '3-3': {
     questionType: QuestionType.ORDERING,
-    usesOptions: false,
     label: 'Reading Part 3',
     validate: validateOrdering,
   },
   '3-4': {
     questionType: QuestionType.SPEAKER_MATCH,
-    usesOptions: false,
     label: 'Reading Part 4',
     validate: validateReadingOpinionMatch,
   },
   '3-5': {
     questionType: QuestionType.HEADING_MATCH,
-    usesOptions: false,
     label: 'Reading Part 5',
     validate: validateHeadingMatch,
   },
@@ -399,14 +385,12 @@ const CONFIG: Record<string, PartConfig> = {
 for (let pn = 1; pn <= 3; pn++) {
   CONFIG[`4-${pn}`] = {
     questionType: QuestionType.ESSAY,
-    usesOptions: false,
     label: `Writing Part ${pn}`,
     validate: validateEssay,
   };
 }
 CONFIG['4-4'] = {
   questionType: QuestionType.ESSAY,
-  usesOptions: false,
   label: 'Writing Part 4 (Formal & Informal)',
   validate: validateWritingFormalInformal,
 };
@@ -414,7 +398,6 @@ CONFIG['4-4'] = {
 for (let pn = 1; pn <= 4; pn++) {
   CONFIG[`5-${pn}`] = {
     questionType: QuestionType.RECORD,
-    usesOptions: false,
     label: `Speaking Part ${pn}`,
     validate: validateRecord,
   };
