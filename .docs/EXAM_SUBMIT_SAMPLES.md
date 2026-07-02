@@ -103,19 +103,25 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
   "examId": 5,
   "type": "MOCK_TEST",
   "attemptId": 12,
+  "score": 82,
   "autoScore": 85,
   "earnedAutoPoints": 17,
   "totalAutoPoints": 20,
-  "needsAiGradingCount": 2,
+  "needsManualReviewCount": 0,
   "details": [
-    { "questionId": 201, "questionType": "MC", "earned": 1, "total": 1, "autoGraded": true, "needsAiGrading": false },
-    { "questionId": 209, "questionType": "ESSAY", "earned": 0, "total": 0, "autoGraded": false, "needsAiGrading": true }
+    { "questionId": 201, "questionType": "MC", "earned": 1, "total": 1, "autoGraded": true, "needsAiGrading": false }
+  ],
+  "ai": [
+    { "questionId": 209, "questionType": "ESSAY", "aiScore": 78, "band": "B2", "feedback": "Good ideas, minor grammar errors.", "needsManualReview": false },
+    { "questionId": 210, "questionType": "RECORD", "aiScore": 72, "band": "B1", "feedback": "Clear content, some hesitation.", "needsManualReview": false }
   ]
 }
 ```
-- `autoScore` = `earnedAutoPoints / totalAutoPoints * 100` (chỉ phần trắc nghiệm). Phase 6 sẽ cộng điểm AI cho ESSAY/RECORD.
+- `score` = **điểm tổng** = trung bình % theo từng câu (trắc nghiệm `earned/total*100` + AI `aiScore`). `autoScore` = riêng phần trắc nghiệm.
+- `details` = chi tiết trắc nghiệm; `ai` = chi tiết chấm tự luận (ESSAY/RECORD) từ Gemini.
+- `needsManualReviewCount` > 0 nếu chưa cấu hình GEMINI_API_KEY hoặc Gemini lỗi → câu đó `aiScore = null`, cần chấm tay.
 - **Luyện tập** (PART_PRACTICE / SKILL_FULL_SET): `attemptId = null`, cập nhật `student_progress`.
-- **Thi thử** (MOCK_TEST): `attemptId` có giá trị, lưu vào `exam_attempts`.
+- **Thi thử** (MOCK_TEST): `attemptId` có giá trị, lưu `exam_attempts.total_score = score`.
 
 ---
 

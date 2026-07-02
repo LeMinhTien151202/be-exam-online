@@ -12,6 +12,9 @@ import { QuestionBankModule } from './question-bank/question-bank.module';
 import { ExamSetsModule } from './exam-sets/exam-sets.module';
 import { ExamsModule } from './exams/exams.module';
 import { ProgressModule } from './progress/progress.module';
+import { StudyMaterialsModule } from './study-materials/study-materials.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
 import { FilesModule } from './files/files.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -33,6 +36,9 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
     ExamSetsModule,
     ExamsModule,
     ProgressModule,
+    StudyMaterialsModule,
+    NotificationsModule,
+    SettingsModule,
     StorageModule,
     FilesModule,
   ],

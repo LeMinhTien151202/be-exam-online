@@ -1,15 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ExamType, Prisma } from '@prisma/client';
+import { ExamType, Prisma, QuestionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgressService, ProgressItem } from '../progress/progress.service';
+import {
+  AiGradingService,
+  SubjectiveItem,
+} from '../ai-grading/ai-grading.service';
 import { SubmitExamDto } from './dto/submit-exam.dto';
-import { gradeQuestion, stripAnswers, GradableQuestion } from './grading';
+import { gradeQuestion, stripAnswers } from './grading';
 
 @Injectable()
 export class ExamsService {
   constructor(
     private prisma: PrismaService,
     private progressService: ProgressService,
+    private aiGrading: AiGradingService,
   ) {}
 
   // Danh sách đề đang mở cho học viên.
@@ -62,40 +67,27 @@ export class ExamsService {
     }
 
     // Gom toàn bộ câu hỏi thuộc đề -> map để tra nhanh.
-    const questionMap = new Map<number, GradableQuestion>();
+    const questionMap = new Map<number, (typeof exam.sections)[0]['parts'][0]['questions'][0]['question']>();
     for (const section of exam.sections) {
       for (const part of section.parts) {
         for (const pq of part.questions) {
-          const q = pq.question;
-          questionMap.set(q.id, {
-            id: q.id,
-            skillId: q.skillId,
-            partNumber: q.partNumber,
-            questionType: q.questionType,
-            extraConfig: q.extraConfig as Record<string, unknown> | null,
-          });
+          questionMap.set(pq.question.id, pq.question);
         }
       }
     }
 
-    // Chấm từng câu học viên gửi (bỏ qua câu không thuộc đề).
+    // Tách trắc nghiệm (chấm ngay) và tự luận (chờ AI).
     const details = [];
+    const subjectiveItems: SubjectiveItem[] = [];
     let earnedAuto = 0;
     let totalAuto = 0;
-    let needsAi = 0;
     const progressCount = new Map<string, ProgressItem>();
 
     for (const ans of dto.answers) {
       const q = questionMap.get(ans.questionId);
       if (!q) continue;
-      const r = gradeQuestion(q, ans.response);
-      details.push(r);
-      if (r.autoGraded) {
-        earnedAuto += r.earned;
-        totalAuto += r.total;
-      }
-      if (r.needsAiGrading) needsAi++;
 
+      // Đếm tiến độ cho mọi câu học viên trả lời.
       const key = `${q.skillId}-${q.partNumber}`;
       const item = progressCount.get(key) ?? {
         skillId: q.skillId,
@@ -104,14 +96,57 @@ export class ExamsService {
       };
       item.count += 1;
       progressCount.set(key, item);
+
+      if (
+        q.questionType === QuestionType.ESSAY ||
+        q.questionType === QuestionType.RECORD
+      ) {
+        subjectiveItems.push({
+          questionId: q.id,
+          questionType: q.questionType,
+          content: q.content,
+          extraConfig: q.extraConfig as Record<string, unknown> | null,
+          response: ans.response,
+        });
+      } else {
+        const r = gradeQuestion(
+          {
+            id: q.id,
+            skillId: q.skillId,
+            partNumber: q.partNumber,
+            questionType: q.questionType,
+            extraConfig: q.extraConfig as Record<string, unknown> | null,
+          },
+          ans.response,
+        );
+        details.push(r);
+        earnedAuto += r.earned;
+        totalAuto += r.total;
+      }
     }
 
-    // Điểm auto (0-100). Phần ESSAY/RECORD chờ Gemini (Phase 6).
+    // Chấm tự luận qua Gemini (song song). Thiếu key -> needsManualReview.
+    const aiResults = await this.aiGrading.gradeMany(subjectiveItems);
+
+    // Điểm tổng = trung bình % theo từng câu (trắc nghiệm + AI). Câu chờ chấm tay không tính.
+    const percents: number[] = [];
+    details.forEach((d) => {
+      if (d.total > 0) percents.push((d.earned / d.total) * 100);
+    });
+    aiResults.forEach((a) => {
+      if (a.aiScore !== null) percents.push(a.aiScore);
+    });
+    const overallScore = percents.length
+      ? Math.round(percents.reduce((s, v) => s + v, 0) / percents.length)
+      : 0;
     const autoScore =
       totalAuto > 0 ? Math.round((earnedAuto / totalAuto) * 100) : 0;
+    const needsManualReviewCount = aiResults.filter(
+      (a) => a.needsManualReview,
+    ).length;
 
     // Luyện tập: KHÔNG lưu attempt, chỉ tăng student_progress.
-    // Thi thử (MOCK_TEST): lưu 1 dòng exam_attempts.
+    // Thi thử (MOCK_TEST): lưu 1 dòng exam_attempts (điểm tổng gồm cả AI).
     let attemptId: number | null = null;
     if (exam.type === ExamType.MOCK_TEST) {
       const attempt = await this.prisma.examAttempt.create({
@@ -119,7 +154,7 @@ export class ExamsService {
           studentId,
           examId: exam.id,
           status: 'SUBMITTED',
-          totalScore: autoScore,
+          totalScore: overallScore,
         },
       });
       attemptId = attempt.id;
@@ -137,11 +172,13 @@ export class ExamsService {
       examId: exam.id,
       type: exam.type,
       attemptId,
-      autoScore,
+      score: overallScore, // điểm tổng (trắc nghiệm + AI)
+      autoScore, // riêng phần trắc nghiệm
       earnedAutoPoints: earnedAuto,
       totalAutoPoints: totalAuto,
-      needsAiGradingCount: needsAi, // số câu ESSAY/RECORD chờ chấm AI (Phase 6)
-      details,
+      needsManualReviewCount, // số câu AI chưa chấm được (chờ chấm tay)
+      details, // chi tiết trắc nghiệm
+      ai: aiResults, // chi tiết chấm tự luận (score/band/feedback)
     };
   }
 
