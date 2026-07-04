@@ -343,6 +343,19 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
 ('MOCK_TEST_DURATION_WRITING', '30'),
 ('MOCK_TEST_DURATION_SPEAKING', '15');
 
+-- Góc giải đáp — FAQ tĩnh (admin/teacher đăng sẵn, học viên đọc)
+CREATE TABLE faqs (
+id SERIAL PRIMARY KEY,
+question TEXT NOT NULL,
+answer TEXT NOT NULL,
+category VARCHAR(100),
+sort_order INT NOT NULL DEFAULT 0,
+is_active BOOLEAN NOT NULL DEFAULT TRUE,
+created_by INT NOT NULL REFERENCES users(id),
+created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+deleted_at TIMESTAMP
+);
+
 -- ============================================================
 -- INDEXES
 -- ============================================================
@@ -362,6 +375,9 @@ CREATE INDEX idx_qbank_extra_config ON question_bank USING GIN (extra_config);
 -- Câu hỏi trong từng part của đề
 CREATE INDEX idx_exam_part_questions_part ON exam_part_questions (exam_part_id, order_index);
 
+-- Góc giải đáp — lọc FAQ theo nhóm
+CREATE INDEX idx_faqs_category ON faqs (category);
+
 -- ============================================================
 -- TỔNG KẾT SỐ BẢNG
 -- ============================================================
@@ -371,8 +387,8 @@ CREATE INDEX idx_exam_part_questions_part ON exam_part_questions (exam_part_id, 
 -- Question Bank : question_bank, exam_part_questions (2 — đã bỏ question_bank_options)
 -- Attempts : exam_attempts (1)
 -- Progress & Phụ : student_progress, learning_streaks, study_materials,
--- notifications, system_settings (5)
+-- notifications, system_settings, faqs (6)
 --
--- TỔNG : 16 bảng (đã bỏ question_bank_options — MC options vào extra_config)
+-- TỔNG : 17 bảng (bỏ question_bank_options; thêm faqs — góc giải đáp)
 -- (Đã tối ưu siêu triệt để: Xóa lịch sử đáp án, snapshot, xóa AI grading tables, xóa logs)
 -- ============================================================

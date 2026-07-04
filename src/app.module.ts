@@ -15,6 +15,7 @@ import { ProgressModule } from './progress/progress.module';
 import { StudyMaterialsModule } from './study-materials/study-materials.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SettingsModule } from './settings/settings.module';
+import { FaqModule } from './faq/faq.module';
 import { StorageModule } from './storage/storage.module';
 import { FilesModule } from './files/files.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -39,6 +40,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
     StudyMaterialsModule,
     NotificationsModule,
     SettingsModule,
+    FaqModule,
     StorageModule,
     FilesModule,
   ],

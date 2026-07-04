@@ -38,6 +38,15 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  // Lấy nhanh họ tên từ user_profiles (dùng cho response login/google).
+  async getFullName(userId: number): Promise<string | null> {
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { userId },
+      select: { fullName: true },
+    });
+    return profile?.fullName ?? null;
+  }
+
   // Đăng ký công khai: luôn tạo STUDENT.
   async register(email: string, password: string, fullName: string) {
     return this.createUserWithProfile(email, password, fullName, Role.STUDENT);

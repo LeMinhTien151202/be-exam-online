@@ -69,7 +69,9 @@ export class AuthService {
     };
     const access_token = this.jwtService.sign(payload);
     const refresh_token = this.createRefreshToken(payload, response);
-    return { access_token, refresh_token, user };
+    // Kèm fullName (nằm ở bảng user_profiles) để FE khỏi phải gọi thêm /auth/account.
+    const fullName = await this.usersService.getFullName(user.id);
+    return { access_token, refresh_token, user: { ...user, fullName } };
   }
 
   // Refresh stateless: chỉ xác thực chữ ký + hạn (schema users không lưu refresh token).

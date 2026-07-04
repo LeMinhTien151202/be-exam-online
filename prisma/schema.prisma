@@ -69,8 +69,28 @@ model User {
   notifications    Notification[]
   examSetsCreated  ExamSet[]        @relation("ExamSetCreatedBy")
   questionsCreated QuestionBank[]   @relation("QuestionCreatedBy")
+  faqsCreated      Faq[]            @relation("FaqCreatedBy")
 
   @@map("users")
+}
+
+// Góc giải đáp — FAQ tĩnh (admin/teacher đăng sẵn, học viên đọc).
+model Faq {
+  id        Int       @id @default(autoincrement())
+  question  String    @db.Text
+  answer    String    @db.Text
+  category  String?   @db.VarChar(100)
+  sortOrder Int       @default(0) @map("sort_order")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdBy Int       @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  // Relations
+  creator   User      @relation("FaqCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([category], map: "idx_faqs_category")
+  @@map("faqs")
 }
 
 model UserProfile {

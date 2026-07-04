@@ -218,11 +218,15 @@
 ## Kỹ năng 3 — Reading
 
 ### Part 1 — Sentence Comprehension (MC gap-fill, 5 chỗ trống, mỗi chỗ 3 đáp án)
+
+> **`content` = nguyên đoạn văn/email**, chèn 5 chỗ trống đánh số `___(1)…(5)` inline đúng vị trí.
+> `extraConfig.gaps` cung cấp 3 lựa chọn cho từng chỗ; `gap_id` khớp **theo thứ tự** chỗ trống trong đoạn.
+> FE (admin): nhập **1 ô đoạn văn (content)** + **5 bộ đáp án** ở bước "Thiết lập câu hỏi" — không nhập 5 câu rời.
 ```json
 {
   "skillId": 3,
   "partNumber": 1,
-  "content": "Hi Anna, thanks for your ___ (1). I would ___ (2) to join the trip. Please let me ___ (3) the details. See ___ (4) soon. Best ___ (5), Tom.",
+  "content": "Hi Anna, thanks for your ___(1). I would ___(2) to join the trip. Please let me ___(3) the details. See ___(4) soon. Best ___(5), Tom.",
   "extraConfig": {
     "gaps": [
       { "gap_id": 1, "options": ["message", "messages", "messaging"], "correct_index": 0 },

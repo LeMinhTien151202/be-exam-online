@@ -133,7 +133,8 @@
 ### 2.12. `notifications/` — Thông báo *(bảng `notifications`)*
 | Method | Path | Quyền | Mô tả |
 | :-- | :-- | :-- | :-- |
-| GET | `/notifications/me` | mọi role | List của mình (gồm `receiver_id = NULL` broadcast) + filter `is_read`. |
+| GET | `/notifications` | ADMIN | **Quản lý**: tất cả thông báo + lọc `notificationType`/`isRead`/`audience`(all\|broadcast\|personal)/`receiverId`/`search` + phân trang (kèm `receiver`). |
+| GET | `/notifications/me` | mọi role | List của mình (gồm `receiver_id = NULL` broadcast) + filter `is_read` + **phân trang**. |
 | PATCH | `/notifications/:id/read` | mọi role | Đánh dấu đã đọc. |
 | PATCH | `/notifications/read-all` | mọi role | Đọc tất cả. |
 | POST | `/notifications` | ADMIN | Gửi (broadcast hoặc target 1 user), `notification_type`. |
@@ -148,6 +149,16 @@
 | Method | Path | Quyền | Mô tả |
 | :-- | :-- | :-- | :-- |
 | POST | `/files/upload` | ADMIN/TEACHER | Upload ảnh (jpeg/jpg/png/gif ≤ 1MB), phân loại theo header `folder_type`; trả `file_url`. |
+
+### 2.15. `faqs/` — Góc giải đáp *(bảng `faqs`)*
+FAQ tĩnh: ADMIN/TEACHER đăng sẵn Q+A, học viên đọc/tìm.
+| Method | Path | Quyền | Mô tả |
+| :-- | :-- | :-- | :-- |
+| GET | `/faqs` | mọi role | List FAQ (`isActive` only; lọc `category`/`search`; ADMIN `?includeInactive=true`) + **phân trang**. Sắp theo `sort_order`. |
+| GET | `/faqs/:id` | mọi role | Chi tiết. |
+| POST | `/faqs` | ADMIN/TEACHER | Tạo (`question`, `answer`, `category?`, `sortOrder?`, `isActive?`). |
+| PATCH | `/faqs/:id` | ADMIN/TEACHER | Sửa / ẩn (`isActive`). |
+| DELETE | `/faqs/:id` | ADMIN/TEACHER | Soft delete (`deleted_at`). |
 
 ---
 
@@ -245,6 +256,7 @@ GEMINI_MAX_RETRIES=2
 | **5** | **Exams take/submit** — luyện tập (3.3) + chấm trắc nghiệm + **Progress** + **Streak** (3.4) | 4 |
 | **6** | **Mock Test** submit + **AI chấm tự luận qua Gemini** đồng bộ (3.2 + 3.6): module `ai-grading/`, `GeminiService` + Essay/Speaking grading, chấm song song | 5 |
 | **7** | **Study Materials** + **Notifications** + **Settings** | 1 |
+| **8** | **FAQ / Góc giải đáp** (FAQ tĩnh — bảng `faqs`, CRUD, lọc category/search) | 1 |
 
 ---
 
