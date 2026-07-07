@@ -270,31 +270,68 @@ function validateHeadingMatch(p: QuestionPayload): void {
   });
 }
 
-// Writing P1..P3: ESSAY (chung).
-function validateEssay(p: QuestionPayload): void {
-  asString(p.content, 'content (đề bài)');
-  const e = ec(p);
-  const min = asNumber(e.word_limit_min, 'extra_config.word_limit_min');
-  const max = asNumber(e.word_limit_max, 'extra_config.word_limit_max');
-  if (min > max) bad('word_limit_min không được lớn hơn word_limit_max');
-  if (e.register_type != null) {
-    oneOf(e.register_type, 'extra_config.register_type', ['FORMAL', 'INFORMAL']);
-  }
+// WRITING — MỖI PART = 1 DÒNG, gói các câu con vào extra_config (không tách nhiều dòng).
+
+function checkWordLimit(e: Record<string, unknown>, prefix = 'extra_config') {
+  const min = asNumber(e.word_limit_min, `${prefix}.word_limit_min`);
+  const max = asNumber(e.word_limit_max, `${prefix}.word_limit_max`);
+  if (min > max) bad(`${prefix}: word_limit_min không được lớn hơn word_limit_max`);
+}
+// sample_answer = bài/đáp án mẫu (TUỲ CHỌN) nhập lúc tạo câu hỏi. Bị ẩn khỏi đề khi học viên làm.
+function optSampleAnswer(o: Record<string, unknown>, name: string) {
+  if (o.sample_answer != null) asString(o.sample_answer, name);
 }
 
-// Writing P4: Formal & Informal — 2 task (Task 1 informal / Task 2 formal)
-// dựa trên CÙNG 1 tình huống gốc (context = notice). Tạo 2 bản ghi ESSAY,
-// cùng question_group_id để liên kết cặp.
-function validateWritingFormalInformal(p: QuestionPayload): void {
-  asString(p.content, 'content (đề bài của task)');
+// Writing P1: form đăng ký — 5 ô điền ngắn. content = bối cảnh chung.
+function validateWritingP1(p: QuestionPayload): void {
+  asString(p.content, 'content (bối cảnh / form)');
   const e = ec(p);
-  const min = asNumber(e.word_limit_min, 'extra_config.word_limit_min');
-  const max = asNumber(e.word_limit_max, 'extra_config.word_limit_max');
-  if (min > max) bad('word_limit_min không được lớn hơn word_limit_max');
-  oneOf(e.register_type, 'extra_config.register_type', ['FORMAL', 'INFORMAL']);
-  asString(e.task_label, 'extra_config.task_label');
-  asString(e.question_group_id, 'extra_config.question_group_id');
-  if (e.context != null) asString(e.context, 'extra_config.context');
+  checkWordLimit(e);
+  const prompts = asArray(e.prompts, 'extra_config.prompts', { min: 5, max: 5 });
+  prompts.forEach((pr, i) => {
+    const o = obj(pr, `prompts[${i}]`);
+    asString(o.question, `prompts[${i}].question`);
+    optSampleAnswer(o, `prompts[${i}].sample_answer`);
+  });
+}
+
+// Writing P2: 1 đề, 20-30 từ (1 câu duy nhất).
+function validateWritingP2(p: QuestionPayload): void {
+  asString(p.content, 'content (đề bài)');
+  const e = ec(p);
+  checkWordLimit(e);
+  optSampleAnswer(e, 'extra_config.sample_answer');
+}
+
+// Writing P3: chat room — 3 câu từ Member A/B/C, gói 3 prompt trong 1 dòng.
+function validateWritingP3(p: QuestionPayload): void {
+  asString(p.content, 'content (bối cảnh group chat)');
+  const e = ec(p);
+  checkWordLimit(e);
+  const prompts = asArray(e.prompts, 'extra_config.prompts', { min: 3, max: 3 });
+  prompts.forEach((pr, i) => {
+    const o = obj(pr, `prompts[${i}]`);
+    asString(o.speaker_name, `prompts[${i}].speaker_name`);
+    asString(o.question, `prompts[${i}].question`);
+    optSampleAnswer(o, `prompts[${i}].sample_answer`);
+  });
+}
+
+// Writing P4: Formal & Informal — 2 task chung 1 tình huống, gói cả 2 trong 1 dòng.
+function validateWritingP4(p: QuestionPayload): void {
+  const e = ec(p);
+  asString(e.context, 'extra_config.context (thông báo gốc)');
+  const tasks = asArray(e.tasks, 'extra_config.tasks', { min: 2, max: 2 });
+  tasks.forEach((t, i) => {
+    const o = obj(t, `tasks[${i}]`);
+    asString(o.task_label, `tasks[${i}].task_label`);
+    asString(o.instruction, `tasks[${i}].instruction`);
+    oneOf(o.register_type, `tasks[${i}].register_type`, ['FORMAL', 'INFORMAL']);
+    const min = asNumber(o.word_limit_min, `tasks[${i}].word_limit_min`);
+    const max = asNumber(o.word_limit_max, `tasks[${i}].word_limit_max`);
+    if (min > max) bad(`tasks[${i}]: word_limit_min > word_limit_max`);
+    optSampleAnswer(o, `tasks[${i}].sample_answer`);
+  });
 }
 
 // Speaking P1..P4: RECORD. Ảnh lưu ở extra_config.image_urls (mảng),
@@ -381,18 +418,26 @@ const CONFIG: Record<string, PartConfig> = {
   },
 };
 
-// Writing P1..P3 = ESSAY chung; P4 = Formal & Informal (validator riêng).
-for (let pn = 1; pn <= 3; pn++) {
-  CONFIG[`4-${pn}`] = {
-    questionType: QuestionType.ESSAY,
-    label: `Writing Part ${pn}`,
-    validate: validateEssay,
-  };
-}
+// Writing — MỖI PART 1 DÒNG (câu con gói trong extra_config).
+CONFIG['4-1'] = {
+  questionType: QuestionType.ESSAY,
+  label: 'Writing Part 1 (5 ô điền)',
+  validate: validateWritingP1,
+};
+CONFIG['4-2'] = {
+  questionType: QuestionType.ESSAY,
+  label: 'Writing Part 2 (đoạn ngắn)',
+  validate: validateWritingP2,
+};
+CONFIG['4-3'] = {
+  questionType: QuestionType.ESSAY,
+  label: 'Writing Part 3 (chat 3 member)',
+  validate: validateWritingP3,
+};
 CONFIG['4-4'] = {
   questionType: QuestionType.ESSAY,
-  label: 'Writing Part 4 (Formal & Informal)',
-  validate: validateWritingFormalInformal,
+  label: 'Writing Part 4 (Formal & Informal, 2 task)',
+  validate: validateWritingP4,
 };
 // Speaking P1..P4 = RECORD
 for (let pn = 1; pn <= 4; pn++) {

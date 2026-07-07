@@ -153,7 +153,10 @@ export function stripAnswers<T>(value: T): T {
   if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (k === 'is_correct' || k.startsWith('correct')) continue;
+      // Ẩn đáp án khỏi đề: is_correct, correct_*, và sample_answer (bài mẫu Writing).
+      if (k === 'is_correct' || k === 'sample_answer' || k.startsWith('correct')) {
+        continue;
+      }
       out[k] = stripAnswers(v);
     }
     return out as unknown as T;

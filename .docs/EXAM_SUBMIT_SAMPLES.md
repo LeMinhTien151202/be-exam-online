@@ -26,7 +26,7 @@
 | **HEADING_MATCH** (Reading P5) | object `{ paragraph_label: heading }` | `{ "1": "Humble Beginnings" }` |
 | **SPEAKER_MATCH Listening** (P2) | object `{ speaker_index: answer }` | `{ "1": "prefers to shop alone." }` |
 | **SPEAKER_MATCH Reading** (P4) | mảng theo thứ tự câu hỏi | `["A","C","B",...]` |
-| **ESSAY** (Writing) | chuỗi bài viết | `"My favourite season is..."` |
+| **ESSAY** (Writing) | Writing gói nhiều câu con/part → **mảng bài viết** theo thứ tự `prompts`/`tasks` (P2 mảng 1 phần tử) | `["ans1","ans2",...]` |
 | **RECORD** (Speaking) | URL audio đã upload | `"https://.../audio/...mp3"` |
 
 > ESSAY / RECORD hiện **chưa auto-chấm** → trả về trong `needsAiGradingCount` (chờ Phase 6 chấm bằng Gemini).
@@ -58,6 +58,39 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
 { "1": "Humble Beginnings", "2": "The Tournament in Modern Day", "3": "Inclusivity of Nations", "4": "Record Holders", "5": "Controversial Issues", "6": "Economic Strain", "7": "The Future of The World Cup" }
 ```
 
+### Writing (ESSAY) — `response` là **mảng** câu trả lời con theo thứ tự `prompts`/`tasks`
+
+- **Writing P1** (5 ô điền — mảng 5 câu ngắn):
+```json
+["autumn", "reading books", "by train", "Da Nang", "my family"]
+```
+- **Writing P2** (1 đề — mảng 1 phần tử):
+```json
+["I love travelling and photography, so I want to join the Travel Club to meet people who share my hobbies and explore new places together."]
+```
+- **Writing P3** (3 Member A/B/C — mảng 3 đoạn):
+```json
+[
+  "I usually travel with my family. We enjoy road trips and visiting the countryside together every summer.",
+  "I agree that self-guided tours are more flexible, but group tours are safer and you can make new friends easily.",
+  "If I could travel anywhere tomorrow, I would go to Japan to see the cherry blossoms and try the local food."
+]
+```
+- **Writing P4** (2 task Informal + Formal — mảng 2 email):
+```json
+[
+  "Hey Minh! Did you see the notice? I'm so annoyed the picnic got cancelled. We were really looking forward to it. Maybe we can plan something ourselves? Let me know what you think!",
+  "Dear Sir/Madam, I am writing to express my dissatisfaction regarding the cancellation of the annual picnic. Many members had already made arrangements. I would like to propose that the club seek sponsorship or reschedule the event. I look forward to your response. Yours faithfully, An."
+]
+```
+
+### Speaking (RECORD) — `response` là **URL audio** đã upload
+
+```json
+"https://ixloh....supabase.co/storage/v1/object/public/exam-online/audio/speaking/p1/answer.mp3"
+```
+> Writing/Speaking do **Gemini chấm** (không auto), trả trong `ai[]`; câu Writing được chấm **tổng thể cả part → 1 điểm**.
+
 ---
 
 ## B. Body submit đầy đủ — `POST /exams/{id}/submit`
@@ -88,7 +121,7 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
     { "questionId": 206, "response": [0, 1, 2, 3, 4, 5] },
     { "questionId": 207, "response": ["A", "C", "B", "C", "D", "A", "B"] },
     { "questionId": 208, "response": { "1": "Humble Beginnings", "2": "The Tournament in Modern Day", "3": "Inclusivity of Nations", "4": "Record Holders", "5": "Controversial Issues", "6": "Economic Strain", "7": "The Future of The World Cup" } },
-    { "questionId": 209, "response": "My favourite season is autumn because the weather is cool and the leaves are beautiful." },
+    { "questionId": 209, "response": ["autumn", "reading", "by train", "Da Nang", "my family"] },
     { "questionId": 210, "response": "https://ixloh....supabase.co/storage/v1/object/public/exam-online/audio/speaking/p1/answer.mp3" }
   ]
 }

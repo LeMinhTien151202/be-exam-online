@@ -1,6 +1,13 @@
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { FileType } from '@prisma/client';
+import { FileType } from '../study-materials.service';
 
 export class CreateStudyMaterialDto {
   @ApiProperty({ example: 'Ngữ pháp APTIS - Thì hiện tại' })
@@ -14,10 +21,15 @@ export class CreateStudyMaterialDto {
   fileUrl: string;
 
   @ApiProperty({ enum: FileType, example: FileType.PDF })
-  @IsEnum(FileType, { message: 'fileType phải là PDF | VIDEO' })
+  @IsEnum(FileType, {
+    message: 'fileType phải là PDF | VIDEO | DOCX | PPTX | XLSX | ZIP | LINK',
+  })
   fileType: FileType;
 
-  @ApiPropertyOptional({ example: 300, description: 'Thời lượng (giây) cho VIDEO' })
+  @ApiPropertyOptional({
+    example: 300,
+    description: 'Thời lượng (giây) cho VIDEO',
+  })
   @IsOptional()
   @IsInt({ message: 'durationSeconds phải là số nguyên' })
   @Min(0)
@@ -28,4 +40,10 @@ export class CreateStudyMaterialDto {
   @IsInt({ message: 'skillId phải là số nguyên' })
   @Min(1)
   skillId?: number;
+
+  @ApiPropertyOptional({ example: 1, description: 'Gắn với giáo viên' })
+  @IsOptional()
+  @IsInt({ message: 'teacherId phải là số nguyên' })
+  @Min(1)
+  teacherId?: number;
 }

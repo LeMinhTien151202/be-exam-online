@@ -37,10 +37,7 @@ enum QuestionType {
   RECORD
 }
 
-enum FileType {
-  PDF
-  VIDEO
-}
+
 
 enum NotificationType {
   SYSTEM
@@ -300,7 +297,7 @@ model StudyMaterial {
   id              Int       @id @default(autoincrement())
   title           String    @db.VarChar(255)
   fileUrl         String    @map("file_url") @db.Text
-  fileType        FileType  @map("file_type")
+  fileType        String    @map("file_type")
   durationSeconds Int?      @map("duration_seconds")
   skillId         Int?      @map("skill_id")
   teacherId       Int       @map("teacher_id")

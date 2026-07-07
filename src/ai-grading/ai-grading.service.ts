@@ -72,20 +72,27 @@ export class AiGradingService {
   }
 
   private async gradeEssay(item: SubjectiveItem): Promise<AiGradeResult> {
-    const text = typeof item.response === 'string' ? item.response : '';
-    if (!text.trim()) return this.manual(item, 'Bài viết rỗng');
-
     const cfg = (item.extraConfig ?? {}) as Record<string, unknown>;
+    // Writing giờ 1 part = 1 dòng, có thể gồm nhiều câu con → chấm TỔNG THỂ.
+    const subtasks = this.buildEssaySubtasks(item.content, cfg, item.response);
+    if (subtasks.every((s) => !s.answer.trim())) {
+      return this.manual(item, 'Chưa có bài làm');
+    }
+
     const prompt = [
-      'Bạn là giám khảo APTIS Writing. Chấm bài viết theo thang CEFR (A1..C), điểm 0-100.',
-      'Tiêu chí: hoàn thành yêu cầu, ngữ pháp, từ vựng, liên kết câu, và văn phong (register) nếu có.',
-      `Đề bài: ${item.content ?? ''}`,
-      cfg.register_type ? `Văn phong yêu cầu: ${cfg.register_type}` : '',
-      cfg.word_limit_min && cfg.word_limit_max
-        ? `Giới hạn từ: ${cfg.word_limit_min}-${cfg.word_limit_max}`
-        : '',
-      `Bài viết của thí sinh:\n"""${text}"""`,
-      'Trả về JSON { score, band, feedback }.',
+      'Bạn là giám khảo APTIS Writing. Chấm TỔNG THỂ cả phần thi (gồm các câu con) theo thang CEFR (A1..C), điểm 0-100.',
+      'Tiêu chí: hoàn thành yêu cầu, ngữ pháp, từ vựng, liên kết câu, văn phong (register).',
+      cfg.context
+        ? `Tình huống chung: ${cfg.context}`
+        : item.content
+          ? `Bối cảnh: ${item.content}`
+          : '',
+      'Các câu con và bài làm của thí sinh:',
+      ...subtasks.map(
+        (s, i) =>
+          `(${i + 1}) ${s.prompt}${s.meta ? ` [${s.meta}]` : ''}\n    Trả lời: """${s.answer}"""`,
+      ),
+      'Trả về JSON { score, band, feedback } cho cả phần.',
     ]
       .filter(Boolean)
       .join('\n');
@@ -95,6 +102,50 @@ export class AiGradingService {
       gradeSchema,
     );
     return this.fromGrade(item, grade);
+  }
+
+  // Ghép (đề con, đáp án) tuỳ cấu trúc part Writing. response: string | string[].
+  private buildEssaySubtasks(
+    content: string | null | undefined,
+    cfg: Record<string, unknown>,
+    response: unknown,
+  ): { prompt: string; answer: string; meta?: string }[] {
+    const answers = Array.isArray(response)
+      ? response.map((a) => (typeof a === 'string' ? a : String(a ?? '')))
+      : [typeof response === 'string' ? response : ''];
+
+    const ref = (v: unknown) =>
+      typeof v === 'string' && v.trim() ? `Bài mẫu tham khảo: ${v}` : undefined;
+
+    // P4: tasks[] (task_label, register_type, word_limit, instruction, sample_answer?)
+    if (Array.isArray(cfg.tasks)) {
+      return (cfg.tasks as Record<string, unknown>[]).map((t, i) => ({
+        prompt: `${t.task_label ?? `Task ${i + 1}`}: ${t.instruction ?? ''}`,
+        answer: answers[i] ?? '',
+        meta: [
+          `${t.register_type}, ${t.word_limit_min}-${t.word_limit_max} từ`,
+          ref(t.sample_answer),
+        ]
+          .filter(Boolean)
+          .join('. '),
+      }));
+    }
+    // P1/P3: prompts[] ({question}, {speaker_name, question}, sample_answer?)
+    if (Array.isArray(cfg.prompts)) {
+      return (cfg.prompts as Record<string, unknown>[]).map((pr, i) => ({
+        prompt: `${pr.speaker_name ? `${pr.speaker_name}: ` : ''}${pr.question ?? ''}`,
+        answer: answers[i] ?? '',
+        meta: ref(pr.sample_answer),
+      }));
+    }
+    // P2: 1 câu duy nhất (sample_answer ở cấp extra_config)
+    return [
+      {
+        prompt: content ?? '',
+        answer: answers[0] ?? '',
+        meta: ref(cfg.sample_answer),
+      },
+    ];
   }
 
   private async gradeSpeaking(item: SubjectiveItem): Promise<AiGradeResult> {

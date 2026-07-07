@@ -360,77 +360,89 @@
 
 ---
 
-## Kỹ năng 4 — Writing (ESSAY; riêng P4 = 2 task Formal & Informal)
+## Kỹ năng 4 — Writing (MỖI PART = 1 BẢN GHI, gói câu con trong extra_config)
 
-### Part 1 — Word-level (5 câu điền ngắn 1-5 từ)
+> Khác các kỹ năng khác: mỗi part Writing tạo **1 bản ghi duy nhất**, các câu con nằm trong `extra_config.prompts` (P1/P3) hoặc `extra_config.tasks` (P4). Không tách thành nhiều dòng.
+> **`sample_answer`** (TUỲ CHỌN): đáp án/bài mẫu nhập ngay khi tạo câu hỏi — dùng làm chuẩn tham khảo cho AI chấm và có thể hiển thị sau khi học viên nộp. Bị **ẩn** khỏi đề khi học viên đang làm (`/take`).
+
+### Part 1 — Word-level (5 ô điền ngắn 1-5 từ) → 1 bản ghi, `prompts[5]`
 ```json
 {
   "skillId": 4,
   "partNumber": 1,
-  "content": "What is your favourite time of the year?",
-  "extraConfig": { "word_limit_min": 1, "word_limit_max": 5 }
+  "content": "Bạn vừa tham gia câu lạc bộ Du lịch. Điền form thông tin cá nhân.",
+  "extraConfig": {
+    "word_limit_min": 1,
+    "word_limit_max": 5,
+    "prompts": [
+      { "question": "What is your favourite time of the year?", "sample_answer": "autumn" },
+      { "question": "What do you do in your free time?", "sample_answer": "reading books" },
+      { "question": "How do you usually travel?", "sample_answer": "by train" },
+      { "question": "What is your favourite destination?", "sample_answer": "Da Nang" },
+      { "question": "Who do you travel with?", "sample_answer": "my family" }
+    ]
+  }
 }
 ```
 
-### Part 2 — Short Text (20-30 từ)
+### Part 2 — Short Text (1 đề, 20-30 từ) → 1 bản ghi
 ```json
 {
   "skillId": 4,
   "partNumber": 2,
   "content": "Please write about your interests and why you want to join our Travel Club.",
-  "extraConfig": { "word_limit_min": 20, "word_limit_max": 30 }
+  "extraConfig": {
+    "word_limit_min": 20,
+    "word_limit_max": 30,
+    "sample_answer": "I love travelling and photography, so I want to join the Travel Club to meet new friends and explore beautiful places together."
+  }
 }
 ```
 
-### Part 3 — Chat Room (trả lời Member A/B/C, 30-40 từ)
+### Part 3 — Chat Room (3 Member A/B/C, 30-40 từ) → 1 bản ghi, `prompts[3]`
 ```json
 {
   "skillId": 4,
   "partNumber": 3,
-  "content": "Who do you usually travel with?",
+  "content": "Bạn tham gia group chat của câu lạc bộ Du lịch, trả lời từng thành viên.",
   "extraConfig": {
     "word_limit_min": 30,
     "word_limit_max": 40,
-    "speaker_name": "Member A"
+    "prompts": [
+      { "speaker_name": "Member A", "question": "Who do you usually travel with?", "sample_answer": "I usually travel with my family. We enjoy road trips to the countryside every summer and always have a great time together." },
+      { "speaker_name": "Member B", "question": "I think self-guided tours are more fun than group tours. What do you think?", "sample_answer": "I agree that self-guided tours are more flexible, but group tours are safer and you can easily make new friends along the way." },
+      { "speaker_name": "Member C", "question": "If you could travel anywhere tomorrow, where would you go?", "sample_answer": "If I could travel anywhere tomorrow, I would go to Japan to see the cherry blossoms and enjoy the delicious local food." }
+    ]
   }
 }
 ```
 
-### Part 4 — Formal & Informal (2 task, CÙNG 1 tình huống gốc)
-
-> Tạo **2 bản ghi** (Task 1 informal 50–75 từ, Task 2 formal 120–150 từ) dựa trên cùng một Notice.
-> Bắt buộc: `register_type`, `task_label`, `question_group_id` (giống nhau ở cả 2 task để liên kết cặp). `context` = thông báo gốc dùng chung.
-
-**Task 1 — Email cho bạn (Informal, 50–75 từ):**
+### Part 4 — Formal & Informal (2 task, cùng 1 Notice) → 1 bản ghi, `tasks[2]`
 ```json
 {
   "skillId": 4,
   "partNumber": 4,
-  "content": "Write an email to your friend (also a club member) to share your feelings and discuss the notice.",
+  "content": "Formal & Informal writing dựa trên thông báo của câu lạc bộ.",
   "extraConfig": {
-    "question_group_id": "wp4-picnic-cancel",
     "context": "NOTICE: Due to budget cuts, the club's annual picnic trip next month has been cancelled.",
-    "task_label": "Task 1",
-    "register_type": "INFORMAL",
-    "word_limit_min": 50,
-    "word_limit_max": 75
-  }
-}
-```
-
-**Task 2 — Email cho ban quản lý (Formal, 120–150 từ):**
-```json
-{
-  "skillId": 4,
-  "partNumber": 4,
-  "content": "Write an email to the club manager expressing your dissatisfaction and proposing a solution.",
-  "extraConfig": {
-    "question_group_id": "wp4-picnic-cancel",
-    "context": "NOTICE: Due to budget cuts, the club's annual picnic trip next month has been cancelled.",
-    "task_label": "Task 2",
-    "register_type": "FORMAL",
-    "word_limit_min": 120,
-    "word_limit_max": 150
+    "tasks": [
+      {
+        "task_label": "Task 1",
+        "instruction": "Write an email to your friend (also a club member) to share your feelings and discuss the notice.",
+        "register_type": "INFORMAL",
+        "word_limit_min": 50,
+        "word_limit_max": 75,
+        "sample_answer": "Hey Minh! Did you see the notice? I'm gutted the picnic got cancelled — we were so looking forward to it. Maybe we could organise something ourselves instead? Let me know what you think!"
+      },
+      {
+        "task_label": "Task 2",
+        "instruction": "Write an email to the club manager expressing your dissatisfaction and proposing a solution.",
+        "register_type": "FORMAL",
+        "word_limit_min": 120,
+        "word_limit_max": 150,
+        "sample_answer": "Dear Sir/Madam, I am writing to express my dissatisfaction regarding the cancellation of the annual picnic. Many members had already made arrangements and were greatly looking forward to the event. I would like to propose that the club seek sponsorship or reschedule the trip to a later date so that it can still take place. I look forward to your response. Yours faithfully, An."
+      }
+    ]
   }
 }
 ```

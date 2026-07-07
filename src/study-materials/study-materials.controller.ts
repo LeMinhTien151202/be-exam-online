@@ -9,9 +9,14 @@ import {
   Query,
   ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
-import { FileType, Role } from '@prisma/client';
-import { StudyMaterialsService } from './study-materials.service';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiQuery,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { Role } from '@prisma/client';
+import { StudyMaterialsService, FileType } from './study-materials.service';
 import { CreateStudyMaterialDto } from './dto/create-study-material.dto';
 import { UpdateStudyMaterialDto } from './dto/update-study-material.dto';
 import { ResponseMessage, Roles, User } from '../decorator/customize';

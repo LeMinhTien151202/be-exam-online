@@ -1,6 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FileType, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+export enum FileType {
+  PDF = 'PDF',
+  VIDEO = 'VIDEO',
+  DOCX = 'DOCX',
+  PPTX = 'PPTX',
+  XLSX = 'XLSX',
+  ZIP = 'ZIP',
+  LINK = 'LINK',
+}
 import { CreateStudyMaterialDto } from './dto/create-study-material.dto';
 import { UpdateStudyMaterialDto } from './dto/update-study-material.dto';
 
@@ -28,7 +38,7 @@ export class StudyMaterialsService {
   ) {
     const where: Prisma.StudyMaterialWhereInput = { deletedAt: null };
     if (filters.skillId) where.skillId = filters.skillId;
-    if (filters.fileType) where.fileType = filters.fileType;
+    if (filters.fileType) where.fileType = filters.fileType as any;
     if (filters.search) {
       where.title = { contains: filters.search, mode: 'insensitive' };
     }
@@ -66,7 +76,17 @@ export class StudyMaterialsService {
 
   async update(id: number, dto: UpdateStudyMaterialDto) {
     await this.findOne(id);
-    return this.prisma.studyMaterial.update({ where: { id }, data: dto });
+    return this.prisma.studyMaterial.update({
+      where: { id },
+      data: {
+        title: dto.title,
+        fileUrl: dto.fileUrl,
+        fileType: dto.fileType,
+        durationSeconds: dto.durationSeconds,
+        skillId: dto.skillId,
+        teacherId: dto.teacherId,
+      },
+    });
   }
 
   async remove(id: number) {
