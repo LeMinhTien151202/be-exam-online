@@ -54,7 +54,8 @@ export function gradeQuestion(
   }
 }
 
-// MC có 3 biến thể: gap-fill (gaps) / agreement (choice_kind) / MC thường (options).
+// MC có nhiều biến thể: gap-fill (gaps) / agreement gói cả part (statements) /
+// monologue gói cả bài nghe (questions) / MC thường (options).
 function gradeMc(q: GradableQuestion, response: unknown) {
   const e = cfg(q);
 
@@ -70,9 +71,30 @@ function gradeMc(q: GradableQuestion, response: unknown) {
     return { earned, total: gaps.length };
   }
 
-  // Listening P3 Man/Woman/Both: response = "MAN"|"WOMAN"|"BOTH".
+  // Listening P3 Man/Woman/Both (gói cả part): response = mảng theo thứ tự
+  // statements, mỗi phần tử "MAN"|"WOMAN"|"BOTH". Chấm từng nhận định.
   if (e.choice_kind === 'SPEAKER_AGREEMENT') {
-    return { earned: response === e.correct ? 1 : 0, total: 1 };
+    const statements = arr(e.statements).map(asObj);
+    const ans = arr(response);
+    let earned = 0;
+    statements.forEach((s, i) => {
+      if (ans[i] !== undefined && ans[i] === s.correct) earned++;
+    });
+    return { earned, total: statements.length };
+  }
+
+  // Listening P4 monologue (gói cả bài nghe): response = number[] (index đáp án
+  // đã chọn cho mỗi câu trong bài nghe). Chấm từng câu.
+  if (Array.isArray(e.questions)) {
+    const questions = arr(e.questions).map(asObj);
+    const ans = arr(response);
+    let earned = 0;
+    questions.forEach((qq, i) => {
+      const options = arr(qq.options).map(asObj);
+      const correctIndex = options.findIndex((o) => o.is_correct === true);
+      if (ans[i] !== undefined && ans[i] === correctIndex) earned++;
+    });
+    return { earned, total: questions.length };
   }
 
   // MC thường: response = index đáp án đã chọn (0-based).

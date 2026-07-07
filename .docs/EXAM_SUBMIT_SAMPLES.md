@@ -18,9 +18,10 @@
 
 | Dạng (part) | `response` gửi lên | Ví dụ |
 | :-- | :-- | :-- |
-| **MC thường** (Grammar P1, Listening P1/P4) | index đáp án (0-based) | `1` |
+| **MC thường** (Grammar P1, Listening P1) | index đáp án (0-based) | `1` |
 | **MC gap-fill** (Reading P1) | mảng index mỗi chỗ trống | `[0, 0, 0, 0, 2]` |
-| **MC agreement** (Listening P3) | `"MAN"` \| `"WOMAN"` \| `"BOTH"` | `"BOTH"` |
+| **MC agreement** (Listening P3, gói cả part) | mảng `"MAN"\|"WOMAN"\|"BOTH"` theo thứ tự `statements` | `["BOTH","MAN","WOMAN","BOTH"]` |
+| **MC monologue** (Listening P4, gói cả bài nghe) | mảng index đáp án theo thứ tự `questions` | `[1, 0]` |
 | **ORDERING** (Reading P2/P3) | mảng thứ tự | `[0,1,2,3,4,5]` |
 | **WORD_BANK** (Vocab P2) | object `{ slot_id: answer }` | `{ "s1": "generous" }` |
 | **HEADING_MATCH** (Reading P5) | object `{ paragraph_label: heading }` | `{ "1": "Humble Beginnings" }` |
@@ -46,7 +47,8 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
 ```json
 { "1": "prefers to shop alone.", "2": "dislikes online shopping.", "3": "thinks before purchasing.", "4": "spends a lot of money." }
 ```
-- **Listening P3**: `"BOTH"`
+- **Listening P3** (theo thứ tự các nhận định): `["BOTH", "MAN", "WOMAN", "BOTH"]`
+- **Listening P4** (theo thứ tự các câu trong bài nghe): `[1, 0]`
 - **Reading P1 gap-fill**: `[0, 0, 0, 0, 2]`
 - **Reading P2 ORDERING**: `[0, 1, 2, 3, 4, 5]`
 - **Reading P4** (theo thứ tự 7 câu hỏi):
@@ -116,7 +118,8 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
     { "questionId": 201, "response": 1 },
     { "questionId": 202, "response": { "s1": "generous", "s2": "stubborn", "s3": "cautious", "s4": "fragile", "s5": "reliable" } },
     { "questionId": 203, "response": { "1": "prefers to shop alone.", "2": "dislikes online shopping.", "3": "thinks before purchasing.", "4": "spends a lot of money." } },
-    { "questionId": 204, "response": "BOTH" },
+    { "questionId": 204, "response": ["BOTH", "MAN", "WOMAN", "BOTH"] },
+    { "questionId": 211, "response": [1, 0] },
     { "questionId": 205, "response": [0, 0, 0, 0, 2] },
     { "questionId": 206, "response": [0, 1, 2, 3, 4, 5] },
     { "questionId": 207, "response": ["A", "C", "B", "C", "D", "A", "B"] },
@@ -161,5 +164,5 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
 ## Ghi chú
 - Câu `questionId` không thuộc đề → bị bỏ qua khi chấm (không tính điểm).
 - ORDERING chấm **tất-cả-hoặc-không** (đúng toàn bộ thứ tự mới được 1 điểm).
-- WORD_BANK / HEADING_MATCH / SPEAKER_MATCH / gap-fill chấm **từng ý** (mỗi ý đúng +1, tổng = số ý).
+- WORD_BANK / HEADING_MATCH / SPEAKER_MATCH / gap-fill / Listening P3 (statements) / Listening P4 (questions) chấm **từng ý** (mỗi ý đúng +1, tổng = số ý).
 - Streak (`/streaks/me`) tự cập nhật sau mỗi lần submit.

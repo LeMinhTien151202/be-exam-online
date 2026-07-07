@@ -182,36 +182,66 @@
 }
 ```
 
-### Part 3 — Opinion Matching (MC dạng Man/Woman/Both, audio chung ở part)
+### Part 3 — Opinion Matching (MC Man/Woman/Both — GÓI CẢ PART TRONG 1 BẢN GHI)
+
+> 1 hội thoại Man/Woman dùng **chung 1 audio** → toàn bộ các nhận định gói vào **1 bản ghi duy nhất** (không tách mỗi nhận định 1 dòng).
+> Audio chung đặt ở `mediaUrl`. `extraConfig.statements` chứa danh sách nhận định, mỗi cái `correct` ∈ `MAN|WOMAN|BOTH`.
+> FE: render lần lượt `statements[i].statement`, mỗi câu 3 nút Man/Woman/Both.
 ```json
 {
   "skillId": 2,
   "partNumber": 3,
-  "content": "The new policy will benefit young workers.",
+  "content": "Listen to the conversation. Who expresses each opinion?",
+  "mediaUrl": "https://cdn.example.com/audio/listening-p3.mp3",
   "extraConfig": {
     "choice_kind": "SPEAKER_AGREEMENT",
-    "correct": "BOTH"
-  }
-}
-```
-
-### Part 4 — Monologue (MC, gom 2 câu/1 audio bằng audio_group_id)
-```json
-{
-  "skillId": 2,
-  "partNumber": 4,
-  "content": "What is the main purpose of the lecture?",
-  "mediaUrl": "https://cdn.example.com/audio/listening-p4-monologue1.mp3",
-  "extraConfig": {
-    "audio_group_id": "g1",
-    "options": [
-      { "content": "To warn about a risk", "is_correct": false },
-      { "content": "To explain a discovery", "is_correct": true },
-      { "content": "To advertise a product", "is_correct": false }
+    "statements": [
+      { "statement": "The new policy will benefit young workers.", "correct": "BOTH" },
+      { "statement": "Remote work reduces team productivity.", "correct": "MAN" },
+      { "statement": "The office should stay open on weekends.", "correct": "WOMAN" },
+      { "statement": "Training budgets should be increased.", "correct": "BOTH" }
     ]
   }
 }
 ```
+
+### Part 4 — Monologue (MC — MỖI BÀI NGHE = 1 BẢN GHI, gói các câu MC trong 1 dòng)
+
+> P4 có 2 bài nghe (2 audio riêng), mỗi bài 2 câu MC → tạo **2 bản ghi**, mỗi bản = 1 bài nghe.
+> `mediaUrl` = audio của bài nghe đó. `extraConfig.questions` gói các câu MC của bài (mỗi câu `question` + `options[3]`, đúng 1 `is_correct`).
+> FE: 1 audio + render lần lượt `questions[i].question` kèm 3 lựa chọn.
+
+**Bài nghe 1 (2 câu):**
+```json
+{
+  "skillId": 2,
+  "partNumber": 4,
+  "content": "Listen to the lecture and answer the questions.",
+  "mediaUrl": "https://cdn.example.com/audio/listening-p4-monologue1.mp3",
+  "extraConfig": {
+    "questions": [
+      {
+        "question": "What is the main purpose of the lecture?",
+        "options": [
+          { "content": "To warn about a risk", "is_correct": false },
+          { "content": "To explain a discovery", "is_correct": true },
+          { "content": "To advertise a product", "is_correct": false }
+        ]
+      },
+      {
+        "question": "What does the speaker suggest at the end?",
+        "options": [
+          { "content": "Further reading", "is_correct": true },
+          { "content": "Buying a book", "is_correct": false },
+          { "content": "Joining a club", "is_correct": false }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Bài nghe 2 (2 câu):** tạo bản ghi thứ hai tương tự với `mediaUrl` = audio bài 2 (`.../listening-p4-monologue2.mp3`).
 
 ---
 
@@ -518,4 +548,5 @@
 - **Số lượng phần tử cố định**: WORD_BANK `options_pool`=10 & `slots`=5; ORDERING `options_pool`=6 & `correct_order`=6; gap-fill `gaps`=5 (mỗi gap `options`=3); Listening P2 `options_pool`=6 (câu văn) & `speakers`=4 (mỗi đáp án dùng 1 lần); Reading P4 `people`=4 & `questions`=7 (một người được chọn nhiều lần); Reading P5 cần `example` (câu 0) + `paragraphs`=7 & `headings_pool`=8 & `answers`=7.
 - **MC**: đáp án nằm trong `extraConfig.options` = `[{ content, is_correct }]`, đúng 3 đáp án và **đúng 1** `is_correct: true`. (Không còn bảng question_bank_options.)
 - **Khóa đáp án phải tồn tại**: `correct_answer`/`correct_opinion`/`correct_person`/`correct_heading` phải nằm trong pool/keys tương ứng; `correct_index` trong [0..2].
-- **Giá trị enum cố định**: RECORD `response_time_seconds`∈{30,45,120}, `prep_time_seconds`∈{0,60}, `image_count`∈{0,1,2} và `image_urls` phải có ĐÚNG `image_count` phần tử (Speaking P3 = 2 ảnh); Listening P3 `correct`∈{MAN,WOMAN,BOTH}; WORD_BANK `task_variant`∈{DEFINITION,COLLOCATION,SENTENCE,SYNONYM,ANTONYM}.
+- **Giá trị enum cố định**: RECORD `response_time_seconds`∈{30,45,120}, `prep_time_seconds`∈{0,60}, `image_count`∈{0,1,2} và `image_urls` phải có ĐÚNG `image_count` phần tử (Speaking P3 = 2 ảnh); Listening P3 mỗi `statements[i].correct`∈{MAN,WOMAN,BOTH}; WORD_BANK `task_variant`∈{DEFINITION,COLLOCATION,SENTENCE,SYNONYM,ANTONYM}.
+- **Listening gói cả cụm trong 1 bản ghi**: Listening P3 gói TẤT CẢ nhận định vào `extra_config.statements[]` (1 audio chung ở `mediaUrl`) — 1 bản ghi/part. Listening P4 gói các câu MC của CÙNG 1 bài nghe vào `extra_config.questions[]` (audio riêng ở `mediaUrl`) — mỗi bài nghe = 1 bản ghi (P4 có 2 bài → 2 bản ghi). Không còn tách mỗi nhận định/câu thành 1 dòng, và bỏ `audio_group_id`.

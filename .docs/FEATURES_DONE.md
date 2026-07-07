@@ -32,6 +32,12 @@
 - [x] Quản lý danh mục các API endpoint cần bảo vệ (`Permissions`).
 - [x] Quản lý nhóm vai trò (`Roles`) và liên kết quan hệ nhiều-nhiều với permissions tương ứng cho từng vai trò.
 
+#### 🎧 Cập nhật lưu câu hỏi Listening (2026-07-07)
+- [x] Listening Part 3 (Man/Woman/Both): gói CẢ PART vào 1 bản ghi qua `extra_config.statements[]` (audio chung ở `media_url`), bỏ shape cũ 1 nhận định/dòng.
+- [x] Listening Part 4 (Monologue): MỖI BÀI NGHE = 1 bản ghi qua `extra_config.questions[]` (audio riêng ở `media_url`), bỏ `audio_group_id`.
+- [x] Cập nhật validator (`validateAgreement`, `validateMonologueMc`) và grading (`gradeMc` chấm từng ý cho statements/questions).
+- [x] Đồng bộ `QUESTION_SAMPLES.md` + `EXAM_SUBMIT_SAMPLES.md` cho FE nối.
+
 #### 📝 Questions & Exams Modules
 - [x] Quản lý ngân hàng câu hỏi trắc nghiệm (`Questions`) gồm các đáp án và đáp án đúng.
 - [x] Quản lý thông tin đề thi (`Exams`), liên kết quan hệ 1-nhiều hoặc nhiều-nhiều với các câu hỏi thuộc đề thi đó, quản lý phân loại (`category`) và mức độ (`level`).

@@ -186,19 +186,49 @@ function validateListeningSpeakerMatch(p: QuestionPayload): void {
   });
 }
 
-// Listening P3: MC dạng đồng ý — Man/Woman/Both.
+// Listening P3: MC dạng đồng ý — 1 hội thoại Man/Woman dùng chung 1 audio,
+// GÓI cả cụm nhận định vào 1 DÒNG (không tách mỗi nhận định 1 bản ghi).
+// Mỗi nhận định chọn MAN/WOMAN/BOTH. Audio chung ở media_url của câu.
 function validateAgreement(p: QuestionPayload): void {
-  asString(p.content, 'content (nhận định)');
   const e = ec(p);
   oneOf(e.choice_kind, 'extra_config.choice_kind', ['SPEAKER_AGREEMENT']);
-  oneOf(e.correct, 'extra_config.correct', ['MAN', 'WOMAN', 'BOTH']);
+  const statements = asArray(e.statements, 'extra_config.statements', {
+    min: 1,
+  });
+  statements.forEach((s, i) => {
+    const st = obj(s, `statements[${i}]`);
+    asString(st.statement, `statements[${i}].statement`);
+    oneOf(st.correct, `statements[${i}].correct`, ['MAN', 'WOMAN', 'BOTH']);
+  });
 }
 
-// Listening P4: MC monologue, gom 2 câu/1 audio bằng audio_group_id.
+// Listening P4: MC monologue — MỖI BÀI NGHE = 1 DÒNG (audio riêng ở media_url),
+// gói các câu MC của cùng bài nghe trong extra_config.questions.
 function validateMonologueMc(p: QuestionPayload): void {
-  asString(p.content, 'content (câu hỏi)');
-  validateMcOptions(p, 3);
-  asString(ec(p).audio_group_id, 'extra_config.audio_group_id');
+  asString(p.mediaUrl, 'mediaUrl (audio bài nghe)');
+  const questions = asArray(ec(p).questions, 'extra_config.questions', {
+    min: 1,
+  });
+  questions.forEach((q, i) => {
+    const qq = obj(q, `questions[${i}]`);
+    asString(qq.question, `questions[${i}].question`);
+    const opts = asArray(qq.options, `questions[${i}].options`, {
+      min: 3,
+      max: 3,
+    });
+    let correct = 0;
+    opts.forEach((o, j) => {
+      const opt = obj(o, `questions[${i}].options[${j}]`);
+      asString(opt.content, `questions[${i}].options[${j}].content`);
+      if (typeof opt.is_correct !== 'boolean') {
+        bad(`questions[${i}].options[${j}].is_correct phải là boolean`);
+      }
+      if (opt.is_correct === true) correct++;
+    });
+    if (correct !== 1) {
+      bad(`questions[${i}] phải có đúng 1 đáp án đúng (is_correct = true)`);
+    }
+  });
 }
 
 // Reading P1: MC gap-fill — đoạn văn 5 chỗ trống, mỗi chỗ 3 đáp án riêng.
