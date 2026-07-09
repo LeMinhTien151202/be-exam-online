@@ -55,7 +55,7 @@ export class ExamsController {
   @Post(':id/submit')
   @ApiOperation({
     summary:
-      'Nộp bài — chấm trắc nghiệm; luyện tập cập nhật tiến độ, thi thử lưu điểm tổng',
+      'Nộp bài — chấm trắc nghiệm. PART_PRACTICE: tăng tiến độ. SKILL_FULL_SET: ghi attempt (đã làm) + tăng tiến độ. MOCK_TEST: ghi attempt (điểm tổng).',
   })
   @ResponseMessage('Nộp bài thành công')
   submit(

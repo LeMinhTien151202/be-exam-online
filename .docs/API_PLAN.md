@@ -106,12 +106,15 @@
 | GET | `/exams/:id/take` | STUDENT | Lấy đề để làm — **KHÔNG trả `is_correct` / `correct_*` trong `extra_config`**. |
 | POST | `/exams/:id/submit` | STUDENT | Nộp bài. Xử lý khác nhau theo `type` (xem mục 3.2 & 3.3). |
 
-### 2.9. `attempts/` — Kết quả thi thử *(bảng `exam_attempts` — CHỈ MOCK_TEST)*
+### 2.9. `attempts/` — Lần làm bài *(bảng `exam_attempts` — MOCK_TEST + SKILL_FULL_SET)*
+> Ghi 1 dòng mỗi lần nộp cho **MOCK_TEST** (lưu điểm → tính TB) và **SKILL_FULL_SET** (đánh dấu đã làm đề). **PART_PRACTICE KHÔNG ghi attempt** (chỉ `student_progress`).
+
 | Method | Path | Quyền | Mô tả |
 | :-- | :-- | :-- | :-- |
-| GET | `/attempts/me` | STUDENT | Lịch sử điểm mock test của mình. |
-| GET | `/attempts/:id` | STUDENT (chủ) / TEACHER / ADMIN | Chi tiết 1 lần thi (chỉ điểm tổng — DB không lưu chi tiết). |
-| GET | `/attempts` | TEACHER/ADMIN | Toàn bộ, filter `student_id`, `status`. |
+| GET | `/attempts/me` | STUDENT | Lịch sử làm bài của mình (filter `type`, `exam_set_id`). MOCK_TEST kèm điểm; trả kèm **điểm trung bình** MOCK_TEST. |
+| GET | `/attempts/me/done` | STUDENT | Tập `exam_set_id` **đã làm** (để FE gắn nhãn Đã làm/Chưa làm cho SKILL_FULL_SET & MOCK_TEST). |
+| GET | `/attempts/:id` | STUDENT (chủ) / TEACHER / ADMIN | Chi tiết 1 lần làm (chỉ điểm tổng — DB không lưu chi tiết). |
+| GET | `/attempts` | TEACHER/ADMIN | Toàn bộ, filter `student_id`, `status`, `type`. |
 
 ### 2.10. `progress/` & `streaks/` — Tiến độ *(bảng `student_progress`, `learning_streaks`)*
 | Method | Path | Quyền | Mô tả |
@@ -177,12 +180,20 @@ Enforce ở Service theo `type`:
 2. BE **chấm trắc nghiệm** (MC/ORDERING/WORD_BANK/HEADING_MATCH/SPEAKER_MATCH) bằng đáp án trong DB.
 3. BE **gọi AI chấm tự luận** (ESSAY/RECORD) **đồng bộ** → nhận điểm + nhận xét.
 4. Trả **review nóng** đầy đủ về FE (điểm từng phần + feedback AI).
-5. **Chỉ lưu 1 dòng** `exam_attempts` (`total_score`, `status=SUBMITTED`, `started_at`/`finished_at`). KHÔNG lưu đáp án chi tiết / feedback.
-6. Cập nhật streak (3.4).
+5. **Lưu 1 dòng** `exam_attempts` **mỗi lần nộp** (`total_score`, `status=SUBMITTED`, `started_at`/`finished_at`). Cùng 1 đề thi nhiều lần → nhiều dòng. KHÔNG lưu đáp án chi tiết / feedback.
+6. **Điểm trung bình**: `AVG(total_score)` trên các attempt MOCK_TEST của học viên (dùng ở dashboard/landing). Trạng thái **đã thi/chưa thi** = có/không có attempt cho `exam_set_id`.
+7. Cập nhật streak (3.4).
 
-### 3.3. Submit luyện tập (`PART_PRACTICE` / `SKILL_FULL_SET`)
-- Chấm và trả kết quả về FE.
-- **KHÔNG ghi `exam_attempts`.** Chỉ **`UPSERT` + tăng `student_progress.questions_answered`** theo (student, skill, part).
+### 3.3. Submit luyện tập
+**`PART_PRACTICE`** (luyện theo phần):
+- Chấm trắc nghiệm. Nếu luyện phần **Viết/Nói** → **gọi AI (Gemini) chấm** câu ESSAY/RECORD đồng bộ (3.6) và trả điểm + feedback về FE để **hiển thị ngay** (không lưu).
+- **KHÔNG ghi `exam_attempts`, KHÔNG lưu điểm.** Chỉ **`UPSERT` + tăng `student_progress.questions_answered`** theo (student, skill, part).
+- Cập nhật streak (3.4).
+
+**`SKILL_FULL_SET`** (luyện theo bộ đề):
+- Chấm trắc nghiệm. Nếu bộ đề **Viết/Nói** → **gọi AI (Gemini) chấm** các câu ESSAY/RECORD đồng bộ (3.6) và trả điểm + feedback về FE.
+- **Ghi 1 dòng `exam_attempts`** (`exam_set_id`, `status=SUBMITTED`) **chỉ để đánh dấu đã làm đề này** — FE gắn nhãn Đã làm/Chưa làm. **KHÔNG lưu `total_score`** (`total_score = NULL`); average là chuyện của MOCK_TEST. Điểm auto + AI chỉ trả review nóng cho học viên xem ngay, không persist.
+- Cũng tăng `student_progress` cho các part liên quan (đóng góp tiến độ từng phần).
 - Cập nhật streak (3.4).
 
 ### 3.4. Cập nhật `learning_streaks`
@@ -191,18 +202,34 @@ Khi có hoạt động (submit practice/mock):
 - `longest_streak = max(longest_streak, current_streak)`; set `last_activity = CURRENT_DATE`.
 
 ### 3.5. Validate `extra_config` theo `question_type` (khi tạo/sửa câu hỏi)
-Mapping part → type đã chốt (xem memory `aptis-skill-parts`). Mỗi type có schema `extra_config` riêng:
-- `MC`: MC đơn `{ options: [{content, is_correct}] }` (Grammar P1, Listening P1/P4) **hoặc** gap-fill `{ gaps: [{gap_id, options[3], correct_index}] }` (Reading P1) / `{ choice_kind:"SPEAKER_AGREEMENT", correct }` (Listening P3) / thêm `{ audio_group_id }` (Listening P4).
-- `ORDERING`: `{ fixed_first, options_pool, correct_order }`.
-- `WORD_BANK`: `{ task_variant: DEFINITION|COLLOCATION|SENTENCE|SYNONYM|ANTONYM, options_pool[10], slots[5] }`.
-- `HEADING_MATCH`: `{ paragraph_label, correct_heading, headings_pool }`.
-- `SPEAKER_MATCH`: `{ speaker_index, correct_opinion, opinions_pool }`.
-- `ESSAY`: `{ word_limit_min, word_limit_max, register_type, speaker_name, task_label }`.
-- `RECORD`: `{ response_time_seconds, prep_time_seconds, image_count, question_group_id }`.
+Mapping part → type đã chốt (xem memory `aptis-skill-parts`). Registry `src/question-bank/question-config.ts` vừa suy `question_type` từ (skillId, partNumber) vừa validate. Schema `extra_config` theo từng part (nhiều dạng **gói cả cụm vào 1 dòng** — không tách mỗi ý 1 bản ghi):
+
+- `MC`:
+  - **Grammar P1** (1-1): `{ options: [{content, is_correct}] ×3 }` (đúng 1 `is_correct=true`), có `content`, không audio.
+  - **Listening P1** (2-1): giống trên nhưng **bắt buộc `mediaUrl`** (audio).
+  - **Reading P1 gap-fill** (3-1): `content` (đoạn văn) + `{ gaps: [{gap_id, options[3], correct_index}] ×5 }`.
+  - **Listening P3 agreement** (2-3, GÓI cả part): `{ choice_kind:"SPEAKER_AGREEMENT", statements: [{statement, correct: MAN|WOMAN|BOTH}] }`, audio chung ở `mediaUrl`.
+  - **Listening P4 monologue** (2-4, MỖI BÀI NGHE = 1 dòng): **`mediaUrl`** (audio riêng) + `{ questions: [{question, options[3]{content, is_correct}}] }`. **Đã bỏ `audio_group_id`.**
+- `ORDERING` (Reading P2/P3): `{ fixed_first: true, options_pool[6], correct_order[6] (hoán vị 0..5) }`.
+- `WORD_BANK` (Vocab P2): `{ task_variant: DEFINITION|COLLOCATION|SENTENCE|SYNONYM|ANTONYM, options_pool[10], slots[5]{slot_id, prompt, correct_answer ∈ options_pool} }`.
+- `SPEAKER_MATCH`:
+  - **Listening P2** (2-2): `{ options_pool[6], speakers[4]{speaker_index, correct_answer ∈ pool, dùng đúng 1 lần} }`.
+  - **Reading P4** (3-4): `{ people[4]{passage, key}, questions[7]{statement, correct_person ∈ people.key} }`.
+- `HEADING_MATCH` (Reading P5): `{ example{paragraph_label, paragraph_text, correct_heading}, paragraphs[7]{label, text}, headings_pool[8], answers[7]{paragraph_label, correct_heading ∈ pool} }`.
+- `ESSAY` (Writing — MỖI PART 1 dòng, câu con gói trong `extra_config`):
+  - **P1** (4-1): `content` + `{ word_limit_min/max, prompts[5]{question, sample_answer?} }`.
+  - **P2** (4-2): `content` + `{ word_limit_min/max, sample_answer? }`.
+  - **P3** (4-3): `content` + `{ word_limit_min/max, prompts[3]{speaker_name, question, sample_answer?} }`.
+  - **P4** (4-4): `{ context, tasks[2]{task_label, instruction, register_type: FORMAL|INFORMAL, word_limit_min/max, sample_answer?} }`.
+- `RECORD` (Speaking) — media chung: `{ response_time_seconds: 30|45|120, prep_time_seconds: 0|60, image_count: 0|1|2, image_urls[] (số lượng = image_count) }`:
+  - **P1** (5-1): 3 câu ĐỘC LẬP, mỗi câu 1 dòng — `content` (câu hỏi) + media ở trên.
+  - **P2/P3/P4** (5-2..4): GÓI cả part — media + `{ questions[]{question, sample_answer?} }`.
+
+> `sample_answer` (bài/đáp án mẫu) là **tuỳ chọn**, bị ẩn khỏi đề khi học viên làm (xem 3.7).
 
 ### 3.6. AI chấm tự luận qua Gemini API *(module `ai-grading/`)*
 
-**Phạm vi**: chấm `ESSAY` (Writing) và `RECORD` (Speaking) — 2 dạng không auto-chấm được. Gọi **đồng bộ** trong luồng `POST /exams/:id/submit` của MOCK_TEST (mục 3.2).
+**Phạm vi**: chấm `ESSAY` (Writing) và `RECORD` (Speaking) — 2 dạng không auto-chấm được. Gọi **đồng bộ** trong luồng `POST /exams/:id/submit` cho **mọi loại đề có câu Viết/Nói** — PART_PRACTICE (3.3), SKILL_FULL_SET (3.3), MOCK_TEST (3.2) — luôn trả điểm + feedback AI trong review nóng để FE hiển thị ngay. Khác biệt ở chỗ **lưu điểm**: chỉ **MOCK_TEST lưu** (gồm điểm AI) vào `exam_attempts.total_score` để tính trung bình; PART_PRACTICE và SKILL_FULL_SET **không lưu điểm để tính trung bình** (PART_PRACTICE không ghi attempt; SKILL_FULL_SET ghi attempt chỉ để đánh dấu đã-làm).
 
 **Cấu hình (`.env`)**:
 ```env
@@ -218,21 +245,22 @@ GEMINI_MAX_RETRIES=2
 - Bật structured output: `responseMimeType: 'application/json'` + `responseSchema` → parse JSON an toàn.
 - Retry có backoff khi lỗi mạng / 429 rate-limit; quá `MAX_RETRIES` → ném lỗi để caller xử lý.
 
-**`EssayGradingService`** (Writing):
-- Input: đề bài + `extra_config` (word_limit, register_type, task_label) + bài viết của học viên.
-- Prompt gồm **rubric APTIS/CEFR** (task fulfillment, grammar, vocabulary, cohesion, register) + thang điểm.
-- Output JSON: `{ score, band (A1..C), feedback, criteria: { taskFulfillment, grammar, vocabulary, cohesion } }`.
+**`AiGradingService`** (1 service dùng chung cho cả Writing và Speaking — `src/ai-grading/ai-grading.service.ts`):
+- `gradeMany(items)` → chấm song song bằng `Promise.all`; mỗi câu tự bọc try/catch nên 1 câu lỗi **không** làm hỏng cả bài (trả về `needsManualReview: true`).
+- `gradeEssay` (ESSAY / Writing):
+  - Input: đề bài + `extra_config` (prompts/tasks, word_limit, register_type…) + bài viết học viên.
+  - Writing giờ 1 part = 1 dòng gồm nhiều câu con (`prompts[]` / `tasks[]`) → dựng lại các câu con và chấm **tổng thể cả part → 1 điểm**.
+  - Prompt gồm rubric APTIS/CEFR (task fulfillment, grammar, vocabulary, cohesion, register).
+- `gradeSpeaking` (RECORD / Speaking):
+  - **Quyết định (tạm thời)**: đưa **file audio thẳng cho Gemini multimodal chấm** — KHÔNG dùng STT riêng (Whisper) hay công cụ chấm phát âm chuyên dụng (Azure Pronunciation). Đơn giản, 1 nhà cung cấp. Để ngỏ nâng cấp hybrid sau nếu cần điểm phát âm định lượng.
+  - Input: **audio** (tải URL đã upload → `fetch` → base64, gửi inline; P1 = 1 URL, P2/3/4 = mảng URL theo thứ tự `questions`) + đề + `extra_config`.
+  - Gemini nghe trực tiếp → chấm nội dung, grammar, vocabulary, fluency; phát âm chỉ **định tính** (gộp trong `feedback`). Câu gói chấm **tổng thể cả part → 1 điểm**.
+- **Output JSON dùng chung** (`gradeSchema`): `{ score (0-100), band (A1..C), feedback }`. *(Không tách `criteria`/`pronunciation`/`fluency` thành field riêng — các tiêu chí nằm trong `feedback` dạng text.)*
 
-**`SpeakingGradingService`** (Speaking / RECORD):
-- **Quyết định (tạm thời)**: đưa **file audio thẳng cho Gemini multimodal chấm** — KHÔNG dùng STT riêng (Whisper) hay công cụ chấm phát âm chuyên dụng (Azure Pronunciation). Đơn giản, 1 nhà cung cấp. Để ngỏ nâng cấp hybrid sau nếu cần điểm phát âm định lượng.
-- Input: **audio** (inline base64 ≤ ~20MB, hoặc Gemini File API cho file lớn) + đề + `extra_config` (response_time, image_count).
-- Gemini nghe trực tiếp → chấm nội dung, grammar, vocabulary, fluency; `pronunciation` chỉ ở mức **định tính** (nhận xét, không đo chính xác từng âm).
-- Output JSON tương tự Essay + tiêu chí `pronunciation` (định tính), `fluency`.
-
-**Điều phối khi submit MOCK (mục 3.2 bước 3)**:
-- Gom tất cả câu ESSAY + RECORD → chấm **song song** bằng `Promise.allSettled`.
-- Câu `fulfilled` → cộng điểm; câu `rejected` → điểm `null` + `needsManualReview: true` (KHÔNG fail cả bài).
-- Tổng hợp vào review nóng trả FE; `exam_attempts.total_score` = điểm trắc nghiệm + tổng điểm AI (chuẩn hóa thang).
+**Điều phối khi submit (mục 3.2 / 3.3)**:
+- `ExamsService.submit()` gom mọi câu ESSAY + RECORD → gọi `aiGrading.gradeMany(...)` (song song) cho **cả 3 loại đề**.
+- Câu chấm được → có `aiScore`; câu lỗi/thiếu `GEMINI_API_KEY` → `aiScore = null` + `needsManualReview: true` (đếm vào `needsManualReviewCount`).
+- Tổng hợp vào review nóng (`ai[]`) trả FE ở **cả 3 loại đề**. `score` tổng = trung bình % theo từng câu (trắc nghiệm `earned/total*100` + `aiScore`). Chỉ **MOCK_TEST** ghi `exam_attempts.total_score` = `score` này (→ `AVG`). **SKILL_FULL_SET**: ghi attempt chỉ để đánh dấu đã-làm (`total_score = NULL`). **PART_PRACTICE**: không ghi attempt. Cả 3 đều trả điểm AI cho học viên xem ngay.
 - **KHÔNG lưu** feedback AI vào DB (đúng triết lý tối giản — xem [[design-conflicts]]).
 
 **Lưu ý vận hành**:
@@ -254,7 +282,7 @@ GEMINI_MAX_RETRIES=2
 | **3** | **Question Bank** + options + validate `extra_config` (3.5) + **Files upload** | 1 |
 | **4** | **Exam Sets** + auto-sinh sections/parts (3.1) + **gán câu hỏi** (2.7) | 3 |
 | **5** | **Exams take/submit** — luyện tập (3.3) + chấm trắc nghiệm + **Progress** + **Streak** (3.4) | 4 |
-| **6** | **Mock Test** submit + **AI chấm tự luận qua Gemini** đồng bộ (3.2 + 3.6): module `ai-grading/`, `GeminiService` + Essay/Speaking grading, chấm song song | 5 |
+| **6** | **Mock Test** submit + **AI chấm tự luận qua Gemini** đồng bộ cho **mọi đề có câu Viết/Nói** (PART_PRACTICE / SKILL_FULL_SET / MOCK_TEST) (3.2 + 3.3 + 3.6): module `ai-grading/`, `GeminiService` + Essay/Speaking grading, chấm song song. Chỉ MOCK_TEST lưu điểm để tính trung bình. | 5 |
 | **7** | **Study Materials** + **Notifications** + **Settings** | 1 |
 | **8** | **FAQ / Góc giải đáp** (FAQ tĩnh — bảng `faqs`, CRUD, lọc category/search) | 1 |
 

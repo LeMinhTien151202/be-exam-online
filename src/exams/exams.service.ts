@@ -145,10 +145,16 @@ export class ExamsService {
       (a) => a.needsManualReview,
     ).length;
 
-    // Luyện tập: KHÔNG lưu attempt, chỉ tăng student_progress.
-    // Thi thử (MOCK_TEST): lưu 1 dòng exam_attempts (điểm tổng gồm cả AI).
+    // Lưu tiến độ theo LOẠI ĐỀ (xem EXAM_SUBMIT_SAMPLES.md):
+    // - PART_PRACTICE: KHÔNG attempt, chỉ tăng student_progress (tiến độ từng phần).
+    // - SKILL_FULL_SET: ghi 1 attempt (đánh dấu "đã làm" đề) + tăng student_progress.
+    //   Điểm KHÔNG dùng tính trung bình (chỉ MOCK_TEST mới tính AVG).
+    // - MOCK_TEST: ghi 1 attempt mỗi lần nộp (dùng cho "đã thi" + điểm trung bình).
     let attemptId: number | null = null;
-    if (exam.type === ExamType.MOCK_TEST) {
+    if (
+      exam.type === ExamType.MOCK_TEST ||
+      exam.type === ExamType.SKILL_FULL_SET
+    ) {
       const attempt = await this.prisma.examAttempt.create({
         data: {
           studentId,
@@ -158,7 +164,11 @@ export class ExamsService {
         },
       });
       attemptId = attempt.id;
-    } else {
+    }
+    if (
+      exam.type === ExamType.PART_PRACTICE ||
+      exam.type === ExamType.SKILL_FULL_SET
+    ) {
       await this.progressService.increment(
         studentId,
         Array.from(progressCount.values()),

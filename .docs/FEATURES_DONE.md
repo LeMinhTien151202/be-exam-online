@@ -38,6 +38,18 @@
 - [x] Cập nhật validator (`validateAgreement`, `validateMonologueMc`) và grading (`gradeMc` chấm từng ý cho statements/questions).
 - [x] Đồng bộ `QUESTION_SAMPLES.md` + `EXAM_SUBMIT_SAMPLES.md` cho FE nối.
 
+#### 🎤 Cập nhật lưu câu hỏi Speaking (2026-07-07)
+- [x] Speaking Part 1 giữ tách lẻ (3 câu độc lập, mỗi câu 1 bản ghi).
+- [x] Speaking Part 2/3/4: GÓI toàn bộ câu hỏi của part vào 1 bản ghi qua `extra_config.questions[]`.
+- [x] Tách validator `validateRecord` (P1) và `validateRecordGrouped` (P2-4); AI chấm Speaking đọc `questions[]`, gom nhiều audio → chấm tổng thể cả part.
+- [x] Đồng bộ `QUESTION_SAMPLES.md` + `EXAM_SUBMIT_SAMPLES.md` (response P2/3/4 = mảng URL audio).
+
+#### 📊 Cập nhật luồng lưu tiến độ khi nộp bài (2026-07-07)
+- [x] PART_PRACTICE: chỉ tăng `student_progress` (không ghi attempt).
+- [x] SKILL_FULL_SET: ghi 1 dòng `exam_attempts` (đánh dấu "đã làm" đề) + tăng `student_progress`; điểm không tính trung bình.
+- [x] MOCK_TEST: ghi 1 dòng `exam_attempts` mỗi lần nộp (dùng cho "đã thi" + điểm trung bình).
+- [x] Sửa `exams.service.ts submit()` + Swagger; đồng bộ bảng "Lưu tiến độ theo từng loại đề" trong `EXAM_SUBMIT_SAMPLES.md`.
+
 #### 📝 Questions & Exams Modules
 - [x] Quản lý ngân hàng câu hỏi trắc nghiệm (`Questions`) gồm các đáp án và đáp án đúng.
 - [x] Quản lý thông tin đề thi (`Exams`), liên kết quan hệ 1-nhiều hoặc nhiều-nhiều với các câu hỏi thuộc đề thi đó, quản lý phân loại (`category`) và mức độ (`level`).

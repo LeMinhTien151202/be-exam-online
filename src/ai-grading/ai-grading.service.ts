@@ -149,32 +149,67 @@ export class AiGradingService {
   }
 
   private async gradeSpeaking(item: SubjectiveItem): Promise<AiGradeResult> {
-    const url = typeof item.response === 'string' ? item.response : '';
-    if (!url.trim()) return this.manual(item, 'Thiếu URL audio');
-
-    // Tải audio từ storage -> base64 để gửi Gemini multimodal.
-    const res = await fetch(url);
-    if (!res.ok) return this.manual(item, `Không tải được audio (${res.status})`);
-    const buffer = Buffer.from(await res.arrayBuffer());
-    const mimeType = guessAudioMime(url);
-
     const cfg = (item.extraConfig ?? {}) as Record<string, unknown>;
+
+    // P1: 1 câu/dòng → response = 1 URL. P2/P3/P4: gói cả part → response = mảng URL
+    // theo thứ tự extra_config.questions. Chấm TỔNG THỂ cả part.
+    const urls = Array.isArray(item.response)
+      ? item.response.map((u) => (typeof u === 'string' ? u : ''))
+      : [typeof item.response === 'string' ? item.response : ''];
+    if (urls.every((u) => !u.trim())) return this.manual(item, 'Thiếu URL audio');
+
+    const questions = Array.isArray(cfg.questions)
+      ? (cfg.questions as Record<string, unknown>[])
+      : null;
+
+    // Tải audio từng câu -> base64 để gửi Gemini multimodal.
+    const audioParts: Part[] = [];
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      if (!url.trim()) continue;
+      const res = await fetch(url);
+      if (!res.ok) {
+        return this.manual(item, `Không tải được audio câu ${i + 1} (${res.status})`);
+      }
+      const buffer = Buffer.from(await res.arrayBuffer());
+      if (questions) {
+        audioParts.push({ text: `Ghi âm câu ${i + 1}:` });
+      }
+      audioParts.push({
+        inlineData: {
+          mimeType: guessAudioMime(url),
+          data: buffer.toString('base64'),
+        },
+      });
+    }
+
+    const questionList = questions
+      ? questions
+          .map(
+            (q, i) =>
+              `(${i + 1}) ${q.question ?? ''}${
+                typeof q.sample_answer === 'string' && q.sample_answer.trim()
+                  ? ` [Bài mẫu tham khảo: ${q.sample_answer}]`
+                  : ''
+              }`,
+          )
+          .join('\n')
+      : `Câu hỏi: ${item.content ?? ''}`;
+
     const promptText = [
-      'Bạn là giám khảo APTIS Speaking. Nghe đoạn ghi âm và chấm theo thang CEFR (A1..C), điểm 0-100.',
+      'Bạn là giám khảo APTIS Speaking. Nghe (các) đoạn ghi âm và chấm TỔNG THỂ cả phần thi theo thang CEFR (A1..C), điểm 0-100.',
       'Tiêu chí: nội dung liên quan, ngữ pháp, từ vựng, độ trôi chảy (fluency), phát âm (định tính).',
-      `Câu hỏi: ${item.content ?? ''}`,
+      questions ? 'Các câu hỏi của phần thi (mỗi câu có 1 ghi âm tương ứng theo thứ tự):' : '',
+      questionList,
       cfg.response_time_seconds
-        ? `Thời lượng nói cho phép: ${cfg.response_time_seconds}s`
+        ? `Thời lượng nói cho phép mỗi câu: ${cfg.response_time_seconds}s`
         : '',
-      'Trả về JSON { score, band, feedback }.',
+      'Trả về JSON { score, band, feedback } cho cả phần.',
     ]
       .filter(Boolean)
       .join('\n');
 
-    const parts: Part[] = [
-      { text: promptText },
-      { inlineData: { mimeType, data: buffer.toString('base64') } },
-    ];
+    const parts: Part[] = [{ text: promptText }, ...audioParts];
     const grade = await this.gemini.generateJson<GeminiGrade>(parts, gradeSchema);
     return this.fromGrade(item, grade);
   }

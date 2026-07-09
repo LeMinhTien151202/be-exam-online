@@ -7,10 +7,24 @@
 ---
 
 ## Luồng
-1. `GET /exams?type=MOCK_TEST` → chọn đề.
+1. `GET /exams?type=...` → chọn đề (PART_PRACTICE / SKILL_FULL_SET / MOCK_TEST).
 2. `GET /exams/{id}/take` → nhận đề **đã ẩn đáp án** (không có `is_correct`, `correct_*`). Lấy `questionId` của từng câu.
 3. `POST /exams/{id}/submit` → gửi `answers`, nhận review + điểm.
 4. `GET /progress/me`, `GET /streaks/me`, `GET /attempts/me` để xem kết quả.
+
+---
+
+## Lưu tiến độ theo từng loại đề
+
+Ba loại đề lưu **khác nhau** — FE dựa vào đây để hiển thị tiến độ / nhãn "Đã làm" / điểm trung bình:
+
+| Loại đề | Mục tiêu (FE) | BE lưu gì | Cách suy ra trạng thái |
+| :-- | :-- | :-- | :-- |
+| **PART_PRACTICE** (luyện theo phần) | Biết **đã làm phần đó chưa** + thanh **tiến độ** từng phần | `student_progress.questions_answered` theo (student, skill, part) — **cộng dồn** | tiến độ = `answered / tổng câu của phần`; đã làm = `answered > 0` |
+| **SKILL_FULL_SET** (luyện theo bộ đề) | Nhãn **Đã làm / Chưa làm** cho từng đề | **1 dòng `exam_attempts`** đánh dấu hoàn thành theo `exam_set_id` | Đã làm = **tồn tại attempt** cho đề đó |
+| **MOCK_TEST** (thi thử) | **Đã thi / Chưa thi** + **điểm trung bình** | **1 dòng `exam_attempts` mỗi lần nộp** (`total_score`) | Đã thi = có attempt; điểm TB = `AVG(total_score)` các lần thi |
+
+> `exam_attempts` dùng cho **cả SKILL_FULL_SET và MOCK_TEST** (mỗi lần nộp ghi 1 dòng). **Điểm trung bình chỉ tính trên `MOCK_TEST`**; SKILL_FULL_SET chỉ cần biết đã-làm nên không dùng điểm để tính TB. **PART_PRACTICE KHÔNG ghi attempt** — chỉ tăng bộ đếm `student_progress`.
 
 ---
 
@@ -28,9 +42,10 @@
 | **SPEAKER_MATCH Listening** (P2) | object `{ speaker_index: answer }` | `{ "1": "prefers to shop alone." }` |
 | **SPEAKER_MATCH Reading** (P4) | mảng theo thứ tự câu hỏi | `["A","C","B",...]` |
 | **ESSAY** (Writing) | Writing gói nhiều câu con/part → **mảng bài viết** theo thứ tự `prompts`/`tasks` (P2 mảng 1 phần tử) | `["ans1","ans2",...]` |
-| **RECORD** (Speaking) | URL audio đã upload | `"https://.../audio/...mp3"` |
+| **RECORD** (Speaking P1) | 1 URL audio đã upload | `"https://.../audio/...mp3"` |
+| **RECORD gói** (Speaking P2/P3/P4) | **mảng URL** audio theo thứ tự `questions` | `["https://.../q1.mp3", "https://.../q2.mp3"]` |
 
-> ESSAY / RECORD hiện **chưa auto-chấm** → trả về trong `needsAiGradingCount` (chờ Phase 6 chấm bằng Gemini).
+> ESSAY / RECORD **không auto-chấm được** → **AI (Gemini) chấm đồng bộ** khi nộp cho **mọi loại đề** có câu Viết/Nói (PART_PRACTICE, SKILL_FULL_SET, MOCK_TEST); kết quả trả trong `ai[]`. Gemini lỗi / chưa cấu hình `GEMINI_API_KEY` → câu đó vào `needsManualReviewCount` (`aiScore = null`).
 
 ---
 
@@ -86,12 +101,21 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
 ]
 ```
 
-### Speaking (RECORD) — `response` là **URL audio** đã upload
+### Speaking (RECORD) — `response` là URL audio đã upload
 
+- **Speaking P1** (3 câu độc lập → mỗi câu 1 bản ghi, response = 1 URL):
 ```json
 "https://ixloh....supabase.co/storage/v1/object/public/exam-online/audio/speaking/p1/answer.mp3"
 ```
-> Writing/Speaking do **Gemini chấm** (không auto), trả trong `ai[]`; câu Writing được chấm **tổng thể cả part → 1 điểm**.
+- **Speaking P2/P3/P4** (gói cả part → response = **mảng URL** theo thứ tự `questions`):
+```json
+[
+  "https://ixloh....supabase.co/storage/v1/object/public/exam-online/audio/speaking/p2/q1.mp3",
+  "https://ixloh....supabase.co/storage/v1/object/public/exam-online/audio/speaking/p2/q2.mp3",
+  "https://ixloh....supabase.co/storage/v1/object/public/exam-online/audio/speaking/p2/q3.mp3"
+]
+```
+> Writing/Speaking do **Gemini chấm** (không auto) ở **mọi loại đề** (PART_PRACTICE / SKILL_FULL_SET / MOCK_TEST), trả trong `ai[]`; câu Writing/Speaking gói được chấm **tổng thể cả part → 1 điểm**.
 
 ---
 
@@ -109,7 +133,11 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
   ]
 }
 ```
-→ Không lưu attempt; tăng `student_progress` (skill 1, part 1, +3). Trả `autoScore` (0-100).
+→ **PART_PRACTICE**: KHÔNG lưu attempt; chỉ tăng `student_progress` (skill 1, part 1, +3). Trả `autoScore` (0-100). Nếu luyện phần **Viết/Nói** → câu ESSAY/RECORD vẫn được **AI (Gemini) chấm** và trả trong `ai[]`.
+
+### B1b. Đề luyện theo bộ đề (SKILL_FULL_SET) — nộp cả kỹ năng
+Body giống B1/B2 (gộp mọi câu của các part trong 1 kỹ năng).
+→ **SKILL_FULL_SET**: ghi **1 dòng `exam_attempts`** (đánh dấu đề này **đã làm**) + tăng `student_progress` các part liên quan. Nếu là bộ đề **Viết/Nói** → câu ESSAY/RECORD được **AI (Gemini) chấm** và trả trong `ai[]`. Điểm chỉ để trả review nóng, **không tính vào điểm trung bình**.
 
 ### B2. Đề thi thử (MOCK_TEST) — trộn nhiều dạng
 ```json
@@ -129,7 +157,7 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
   ]
 }
 ```
-→ Lưu 1 dòng `exam_attempts` (`totalScore` = điểm auto). Câu 209 (ESSAY) + 210 (RECORD) vào `needsAiGradingCount`.
+→ **MOCK_TEST**: câu 209 (ESSAY) + 210 (RECORD) được **AI (Gemini) chấm đồng bộ** → điểm AI. Ghi **1 dòng `exam_attempts` mỗi lần nộp** (`totalScore` = **điểm trắc nghiệm + điểm AI**; thi lại → thêm dòng mới) → dùng cho **đã thi/chưa thi** và **điểm trung bình** (`AVG`). Gemini lỗi → câu đó vào `needsManualReviewCount`.
 
 ---
 
@@ -156,8 +184,9 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
 - `score` = **điểm tổng** = trung bình % theo từng câu (trắc nghiệm `earned/total*100` + AI `aiScore`). `autoScore` = riêng phần trắc nghiệm.
 - `details` = chi tiết trắc nghiệm; `ai` = chi tiết chấm tự luận (ESSAY/RECORD) từ Gemini.
 - `needsManualReviewCount` > 0 nếu chưa cấu hình GEMINI_API_KEY hoặc Gemini lỗi → câu đó `aiScore = null`, cần chấm tay.
-- **Luyện tập** (PART_PRACTICE / SKILL_FULL_SET): `attemptId = null`, cập nhật `student_progress`.
-- **Thi thử** (MOCK_TEST): `attemptId` có giá trị, lưu `exam_attempts.total_score = score`.
+- **PART_PRACTICE** (luyện theo phần): `attemptId = null`, chỉ cập nhật `student_progress` (đã làm phần nào + tiến độ). Nếu luyện phần Viết/Nói → câu ESSAY/RECORD vẫn được **AI (Gemini) chấm** (trả `ai[]`).
+- **SKILL_FULL_SET** (luyện theo bộ đề): `attemptId` có giá trị (đánh dấu **đã làm** đề) + cập nhật `student_progress`. **Không** tính vào điểm trung bình.
+- **MOCK_TEST** (thi thử): `attemptId` có giá trị, lưu `exam_attempts.total_score = score` **mỗi lần nộp** (nhiều dòng/đề) → dùng cho **đã thi/chưa thi** và **điểm trung bình** (`AVG(total_score)`).
 
 ---
 

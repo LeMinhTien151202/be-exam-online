@@ -364,11 +364,9 @@ function validateWritingP4(p: QuestionPayload): void {
   });
 }
 
-// Speaking P1..P4: RECORD. Ảnh lưu ở extra_config.image_urls (mảng),
-// số lượng phải KHỚP image_count (P3 = 2 ảnh so sánh).
-function validateRecord(p: QuestionPayload): void {
-  asString(p.content, 'content (câu hỏi)');
-  const e = ec(p);
+// Speaking RECORD: thời lượng/chuẩn bị + ảnh lưu ở extra_config.image_urls
+// (số lượng phải KHỚP image_count; P3 = 2 ảnh so sánh).
+function validateRecordMedia(e: Record<string, unknown>): void {
   oneOf(e.response_time_seconds, 'extra_config.response_time_seconds', [
     30, 45, 120,
   ]);
@@ -384,6 +382,25 @@ function validateRecord(p: QuestionPayload): void {
   } else if (e.image_urls != null) {
     asArray(e.image_urls, 'extra_config.image_urls', { max: 0 });
   }
+}
+
+// Speaking P1: RECORD — 3 câu ĐỘC LẬP, mỗi câu 1 DÒNG (không gói).
+function validateRecord(p: QuestionPayload): void {
+  asString(p.content, 'content (câu hỏi)');
+  validateRecordMedia(ec(p));
+}
+
+// Speaking P2/P3/P4: RECORD — GÓI toàn bộ câu hỏi của part vào 1 DÒNG.
+// content = đề/bối cảnh chung; các câu con nằm trong extra_config.questions[].
+function validateRecordGrouped(p: QuestionPayload): void {
+  const e = ec(p);
+  validateRecordMedia(e);
+  const questions = asArray(e.questions, 'extra_config.questions', { min: 1 });
+  questions.forEach((q, i) => {
+    const qq = obj(q, `questions[${i}]`);
+    asString(qq.question, `questions[${i}].question`);
+    optSampleAnswer(qq, `questions[${i}].sample_answer`);
+  });
 }
 
 // ───────────────────────── Registry ─────────────────────────
@@ -469,12 +486,18 @@ CONFIG['4-4'] = {
   label: 'Writing Part 4 (Formal & Informal, 2 task)',
   validate: validateWritingP4,
 };
-// Speaking P1..P4 = RECORD
-for (let pn = 1; pn <= 4; pn++) {
+// Speaking = RECORD. P1 tách 3 câu độc lập (1 câu/dòng);
+// P2/P3/P4 GÓI toàn bộ câu hỏi của part vào 1 dòng (extra_config.questions[]).
+CONFIG['5-1'] = {
+  questionType: QuestionType.RECORD,
+  label: 'Speaking Part 1 (3 câu độc lập)',
+  validate: validateRecord,
+};
+for (let pn = 2; pn <= 4; pn++) {
   CONFIG[`5-${pn}`] = {
     questionType: QuestionType.RECORD,
-    label: `Speaking Part ${pn}`,
-    validate: validateRecord,
+    label: `Speaking Part ${pn} (gói câu hỏi trong 1 dòng)`,
+    validate: validateRecordGrouped,
   };
 }
 
