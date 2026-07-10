@@ -74,11 +74,43 @@ export class ExamsController {
 export class AttemptsController {
   constructor(private readonly examsService: ExamsService) {}
 
+  @Get()
+  @Roles(Role.TEACHER, Role.ADMIN)
+  @ApiOperation({ summary: 'TEACHER/ADMIN: toàn bộ lần làm bài (filter + phân trang)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiQuery({ name: 'studentId', required: false })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'type', required: false, enum: ExamType })
+  @ResponseMessage('Lấy danh sách lần làm bài thành công')
+  listAll(
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('studentId') studentId?: string,
+    @Query('status') status?: string,
+    @Query('type') type?: ExamType,
+  ) {
+    return this.examsService.listAllAttempts(Number(page), Number(limit), {
+      studentId: studentId ? Number(studentId) : undefined,
+      status,
+      type,
+    });
+  }
+
   @Get('me')
   @ApiOperation({ summary: 'Lịch sử thi thử của tôi' })
   @ResponseMessage('Lấy lịch sử thi thành công')
   myAttempts(@User() user: IUser) {
     return this.examsService.listMyAttempts(user.id);
+  }
+
+  @Get('me/done')
+  @ApiOperation({
+    summary: 'Tập examId tôi đã làm (FE gắn nhãn Đã làm/Chưa làm)',
+  })
+  @ResponseMessage('Lấy danh sách đề đã làm thành công')
+  myDoneExamIds(@User() user: IUser) {
+    return this.examsService.listMyDoneExamIds(user.id);
   }
 
   @Get(':id')

@@ -50,6 +50,13 @@
 - [x] MOCK_TEST: ghi 1 dòng `exam_attempts` mỗi lần nộp (dùng cho "đã thi" + điểm trung bình).
 - [x] Sửa `exams.service.ts submit()` + Swagger; đồng bộ bảng "Lưu tiến độ theo từng loại đề" trong `EXAM_SUBMIT_SAMPLES.md`.
 
+#### 🧩 Bổ sung endpoint còn thiếu + test AI (2026-07-09)
+- [x] `GET /attempts/me/done` — trả tập `examId` học viên đã làm (FE gắn nhãn Đã làm/Chưa làm).
+- [x] `GET /attempts` (TEACHER/ADMIN) — toàn bộ lần làm bài + filter `studentId`/`status`/`type` + phân trang.
+- [x] `GET /ai-grading/status` — kiểm tra Gemini đã bật chưa (có `GEMINI_API_KEY`).
+- [x] `POST /ai-grading/test` — chấm thử 1 câu ESSAY/RECORD bằng Gemini, không lưu DB (chỉ ADMIN/TEACHER).
+- [x] Đồng bộ `API_PLAN.md` (bổ sung Google OAuth `/auth/google*`, `DELETE /files`, endpoint test AI; sửa mục 3.5/3.6 khớp code).
+
 #### 📝 Questions & Exams Modules
 - [x] Quản lý ngân hàng câu hỏi trắc nghiệm (`Questions`) gồm các đáp án và đáp án đúng.
 - [x] Quản lý thông tin đề thi (`Exams`), liên kết quan hệ 1-nhiều hoặc nhiều-nhiều với các câu hỏi thuộc đề thi đó, quản lý phân loại (`category`) và mức độ (`level`).

@@ -229,6 +229,51 @@ export class ExamsService {
     });
   }
 
+  // Tập examId học viên ĐÃ làm (có attempt) — FE gắn nhãn Đã làm/Chưa làm
+  // cho SKILL_FULL_SET & MOCK_TEST.
+  async listMyDoneExamIds(studentId: number) {
+    const rows = await this.prisma.examAttempt.findMany({
+      where: { studentId },
+      select: { examId: true },
+      distinct: ['examId'],
+    });
+    return rows.map((r) => r.examId);
+  }
+
+  // TEACHER/ADMIN: toàn bộ lần làm bài + filter studentId/status/type + phân trang.
+  async listAllAttempts(
+    page = 1,
+    limit = 10,
+    filters: { studentId?: number; status?: string; type?: ExamType } = {},
+  ) {
+    const where: Prisma.ExamAttemptWhereInput = {};
+    if (filters.studentId) where.studentId = filters.studentId;
+    if (filters.status) where.status = filters.status;
+    if (filters.type) where.exam = { type: filters.type };
+
+    const skip = (page - 1) * limit;
+    const [result, total] = await this.prisma.$transaction([
+      this.prisma.examAttempt.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { id: 'desc' },
+        include: {
+          exam: { select: { id: true, title: true, type: true } },
+          student: { select: { id: true, email: true } },
+        },
+      }),
+      this.prisma.examAttempt.count({ where }),
+    ]);
+    return {
+      result,
+      page,
+      pageSize: limit,
+      total,
+      totalPage: Math.ceil(total / limit),
+    };
+  }
+
   async getMyAttempt(studentId: number, attemptId: number) {
     const attempt = await this.prisma.examAttempt.findFirst({
       where: { id: attemptId, studentId },

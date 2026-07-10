@@ -17,7 +17,7 @@ export class GeminiService {
 
   constructor(config: ConfigService) {
     const apiKey = config.get<string>('GEMINI_API_KEY') || '';
-    this.modelName = config.get<string>('GEMINI_MODEL') || 'gemini-2.0-flash';
+    this.modelName = config.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
     this.timeoutMs = Number(config.get('GEMINI_TIMEOUT_MS') || 45000);
     this.maxRetries = Number(config.get('GEMINI_MAX_RETRIES') || 2);
     if (apiKey) {

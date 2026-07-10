@@ -11,6 +11,7 @@ import { MenusModule } from './menus/menus.module';
 import { QuestionBankModule } from './question-bank/question-bank.module';
 import { ExamSetsModule } from './exam-sets/exam-sets.module';
 import { ExamsModule } from './exams/exams.module';
+import { AiGradingModule } from './ai-grading/ai-grading.module';
 import { ProgressModule } from './progress/progress.module';
 import { StudyMaterialsModule } from './study-materials/study-materials.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -36,6 +37,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
     QuestionBankModule,
     ExamSetsModule,
     ExamsModule,
+    AiGradingModule,
     ProgressModule,
     StudyMaterialsModule,
     NotificationsModule,

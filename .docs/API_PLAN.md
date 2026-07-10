@@ -36,6 +36,8 @@
 | :-- | :-- | :-- | :-- |
 | POST | `/auth/register` | `@Public` | Đăng ký tài khoản STUDENT (hash bcrypt, tạo kèm `user_profiles`). |
 | POST | `/auth/login` | `@Public` + LocalGuard | Đăng nhập, trả `access_token` + set cookie httpOnly `refresh_token`. |
+| GET | `/auth/google` | `@Public` | Bắt đầu đăng nhập Google OAuth (redirect sang Google). |
+| GET | `/auth/google/callback` | `@Public` | Google gọi lại sau khi xác thực → cấp token + set cookie. |
 | GET | `/auth/account` | `@SkipCheckPermission` | Thông tin user hiện tại + role + menu được phép. |
 | GET | `/auth/refresh` | `@Public` | Cấp lại access token từ cookie refresh. |
 | POST | `/auth/logout` | `@SkipCheckPermission` | Thu hồi refresh token + clear cookie. |
@@ -152,6 +154,7 @@
 | Method | Path | Quyền | Mô tả |
 | :-- | :-- | :-- | :-- |
 | POST | `/files/upload` | ADMIN/TEACHER | Upload ảnh (jpeg/jpg/png/gif ≤ 1MB), phân loại theo header `folder_type`; trả `file_url`. |
+| DELETE | `/files` | ADMIN/TEACHER | Xóa file đã upload (theo `file_url`). |
 
 ### 2.15. `faqs/` — Góc giải đáp *(bảng `faqs`)*
 FAQ tĩnh: ADMIN/TEACHER đăng sẵn Q+A, học viên đọc/tìm.
@@ -260,8 +263,14 @@ GEMINI_MAX_RETRIES=2
 **Điều phối khi submit (mục 3.2 / 3.3)**:
 - `ExamsService.submit()` gom mọi câu ESSAY + RECORD → gọi `aiGrading.gradeMany(...)` (song song) cho **cả 3 loại đề**.
 - Câu chấm được → có `aiScore`; câu lỗi/thiếu `GEMINI_API_KEY` → `aiScore = null` + `needsManualReview: true` (đếm vào `needsManualReviewCount`).
-- Tổng hợp vào review nóng (`ai[]`) trả FE ở **cả 3 loại đề**. `score` tổng = trung bình % theo từng câu (trắc nghiệm `earned/total*100` + `aiScore`). Chỉ **MOCK_TEST** ghi `exam_attempts.total_score` = `score` này (→ `AVG`). **SKILL_FULL_SET**: ghi attempt chỉ để đánh dấu đã-làm (`total_score = NULL`). **PART_PRACTICE**: không ghi attempt. Cả 3 đều trả điểm AI cho học viên xem ngay.
+- Tổng hợp vào review nóng (`ai[]`) trả FE ở **cả 3 loại đề**. `score` tổng = trung bình % theo từng câu (trắc nghiệm `earned/total*100` + `aiScore`). **MOCK_TEST + SKILL_FULL_SET** đều ghi `exam_attempts.total_score` = `score` này (cột `Int`, không nullable); nhưng **AVG chỉ tính trên MOCK_TEST** (SKILL_FULL_SET chỉ dùng để đánh dấu đã-làm, không đưa vào trung bình). **PART_PRACTICE**: không ghi attempt. Cả 3 đều trả điểm AI cho học viên xem ngay.
 - **KHÔNG lưu** feedback AI vào DB (đúng triết lý tối giản — xem [[design-conflicts]]).
+
+**Endpoint TEST (kiểm tra Gemini hoạt động — module `ai-grading/`, chỉ ADMIN/TEACHER)**:
+| Method | Path | Mô tả |
+| :-- | :-- | :-- |
+| GET | `/ai-grading/status` | Trả `{ enabled }` — Gemini đã bật chưa (có `GEMINI_API_KEY`). |
+| POST | `/ai-grading/test` | Chấm thử 1 câu `{ questionType: ESSAY\|RECORD, content?, extraConfig?, response }` → gọi thẳng Gemini, trả `{ score, band, feedback, needsManualReview }`. **Không lưu DB.** |
 
 **Lưu ý vận hành**:
 - Free tier Gemini có quota/rate-limit → cân nhắc hàng đợi hoặc giới hạn số bài chấm đồng thời.
