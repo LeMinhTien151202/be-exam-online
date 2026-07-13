@@ -254,12 +254,17 @@ export class ExamSetsService {
   }
 
   // Soft delete (sections/parts giữ nguyên trong DB, cascade chỉ khi xóa cứng).
+  // Dọn student_progress của đề này (xóa mềm không cascade) -> dashboard theo
+  // kỹ năng không còn cộng tiến độ từ đề đã xóa; đề mới tạo lại tự về 0%.
   async remove(id: number) {
     await this.ensureExists(id);
-    await this.prisma.examSet.update({
-      where: { id },
-      data: { deletedAt: new Date(), isActive: false },
-    });
+    await this.prisma.$transaction([
+      this.prisma.studentProgress.deleteMany({ where: { examId: id } }),
+      this.prisma.examSet.update({
+        where: { id },
+        data: { deletedAt: new Date(), isActive: false },
+      }),
+    ]);
     return { message: 'Đã xóa đề thi' };
   }
 

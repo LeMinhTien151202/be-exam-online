@@ -13,10 +13,19 @@ export class ProgressController {
   constructor(private readonly progressService: ProgressService) {}
 
   @Get('progress/me')
-  @ApiOperation({ summary: 'Bộ đếm câu đã làm theo (kỹ năng, phần)' })
+  @ApiOperation({ summary: 'Tiến độ tích lũy theo (kỹ năng, phần) — gộp mọi đề' })
   @ResponseMessage('Lấy tiến độ thành công')
   myProgress(@User() user: IUser) {
     return this.progressService.getMyProgress(user.id);
+  }
+
+  @Get('progress/exams/me')
+  @ApiOperation({
+    summary: '% hoàn thành theo TỪNG ĐỀ (đề chưa làm không xuất hiện = 0%)',
+  })
+  @ResponseMessage('Lấy tiến độ theo đề thành công')
+  myExamProgress(@User() user: IUser) {
+    return this.progressService.getMyExamProgress(user.id);
   }
 
   @Get('streaks/me')

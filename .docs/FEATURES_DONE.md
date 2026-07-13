@@ -50,6 +50,12 @@
 - [x] MOCK_TEST: ghi 1 dòng `exam_attempts` mỗi lần nộp (dùng cho "đã thi" + điểm trung bình).
 - [x] Sửa `exams.service.ts submit()` + Swagger; đồng bộ bảng "Lưu tiến độ theo từng loại đề" trong `EXAM_SUBMIT_SAMPLES.md`.
 
+#### 🎯 Sửa chấm điểm tính trên toàn đề (2026-07-10)
+- [x] `submit()` duyệt **TẤT CẢ câu của đề** thay vì chỉ `dto.answers` → câu bỏ trống tính 0%, mẫu số = cả đề, hết thổi phồng điểm khi FE skip câu chưa làm.
+- [x] Câu tự luận (ESSAY/RECORD) bỏ trống tính 0% ngay, không tốn lượt gọi Gemini.
+- [x] `student_progress` **chỉ** tăng cho câu học viên thực sự làm (không tính câu bỏ trống).
+- [x] Đồng bộ `EXAM_SUBMIT_SAMPLES.md` + `API_PLAN.md` (mục 3.6) mô tả công thức `score` mới.
+
 #### 🧩 Bổ sung endpoint còn thiếu + test AI (2026-07-09)
 - [x] `GET /attempts/me/done` — trả tập `examId` học viên đã làm (FE gắn nhãn Đã làm/Chưa làm).
 - [x] `GET /attempts` (TEACHER/ADMIN) — toàn bộ lần làm bài + filter `studentId`/`status`/`type` + phân trang.

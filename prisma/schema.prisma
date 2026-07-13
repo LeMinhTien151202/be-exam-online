@@ -168,6 +168,7 @@ model ExamSet {
   creator     User          @relation("ExamSetCreatedBy", fields: [createdBy], references: [id])
   sections    ExamSection[]
   attempts    ExamAttempt[]
+  progress    StudentProgress[]
 
   @@map("exam_sets")
 }
@@ -267,17 +268,22 @@ model ExamAttempt {
 // ============================================================
 
 model StudentProgress {
-  studentId         Int      @map("student_id")
-  skillId           Int      @map("skill_id")
-  partNumber        Int      @map("part_number")
-  questionsAnswered Int      @default(0) @map("questions_answered")
-  
-  // Relations
-  student           User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  skill             Skill    @relation(fields: [skillId], references: [id])
+  studentId  Int      @map("student_id")
+  examId     Int      @map("exam_id")
+  skillId    Int      @map("skill_id")
+  partNumber Int      @map("part_number")
+  answered   Int      @default(0) // số câu đã làm ở (đề, kỹ năng, phần) này
+  total      Int      @default(0) // tổng số câu của (đề, kỹ năng, phần) này
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  @@id([studentId, skillId, partNumber])
+  // Relations
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exam       ExamSet  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  skill      Skill    @relation(fields: [skillId], references: [id])
+
+  @@id([studentId, examId, skillId, partNumber])
   @@index([studentId, skillId], map: "idx_progress_student")
+  @@index([studentId, examId], map: "idx_progress_exam")
   @@map("student_progress")
 }
 

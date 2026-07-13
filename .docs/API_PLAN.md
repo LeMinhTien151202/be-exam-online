@@ -263,7 +263,7 @@ GEMINI_MAX_RETRIES=2
 **Điều phối khi submit (mục 3.2 / 3.3)**:
 - `ExamsService.submit()` gom mọi câu ESSAY + RECORD → gọi `aiGrading.gradeMany(...)` (song song) cho **cả 3 loại đề**.
 - Câu chấm được → có `aiScore`; câu lỗi/thiếu `GEMINI_API_KEY` → `aiScore = null` + `needsManualReview: true` (đếm vào `needsManualReviewCount`).
-- Tổng hợp vào review nóng (`ai[]`) trả FE ở **cả 3 loại đề**. `score` tổng = trung bình % theo từng câu (trắc nghiệm `earned/total*100` + `aiScore`). **MOCK_TEST + SKILL_FULL_SET** đều ghi `exam_attempts.total_score` = `score` này (cột `Int`, không nullable); nhưng **AVG chỉ tính trên MOCK_TEST** (SKILL_FULL_SET chỉ dùng để đánh dấu đã-làm, không đưa vào trung bình). **PART_PRACTICE**: không ghi attempt. Cả 3 đều trả điểm AI cho học viên xem ngay.
+- Tổng hợp vào review nóng (`ai[]`) trả FE ở **cả 3 loại đề**. `score` tổng = trung bình % theo **TẤT CẢ câu của đề** (trắc nghiệm `earned/total*100` + `aiScore`); câu **bỏ trống** (không gửi lên) tính **0%** nên mẫu số = cả đề, điểm không bị thổi phồng khi FE skip câu chưa làm. **MOCK_TEST + SKILL_FULL_SET** đều ghi `exam_attempts.total_score` = `score` này (cột `Int`, không nullable); nhưng **AVG chỉ tính trên MOCK_TEST** (SKILL_FULL_SET chỉ dùng để đánh dấu đã-làm, không đưa vào trung bình). **PART_PRACTICE**: không ghi attempt. Cả 3 đều trả điểm AI cho học viên xem ngay.
 - **KHÔNG lưu** feedback AI vào DB (đúng triết lý tối giản — xem [[design-conflicts]]).
 
 **Endpoint TEST (kiểm tra Gemini hoạt động — module `ai-grading/`, chỉ ADMIN/TEACHER)**:

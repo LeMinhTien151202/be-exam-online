@@ -76,39 +76,56 @@ export class ExamsService {
       }
     }
 
+    // Map đáp án học viên gửi lên -> tra nhanh; câu không có trong map = bỏ trống.
+    const answerMap = new Map<number, unknown>();
+    for (const ans of dto.answers) answerMap.set(ans.questionId, ans.response);
+
     // Tách trắc nghiệm (chấm ngay) và tự luận (chờ AI).
     const details = [];
     const subjectiveItems: SubjectiveItem[] = [];
+    const percents: number[] = [];
     let earnedAuto = 0;
     let totalAuto = 0;
+    // Tiến độ theo (skill, part) của ĐỀ NÀY: total = tổng câu, answered = câu đã làm.
     const progressCount = new Map<string, ProgressItem>();
 
-    for (const ans of dto.answers) {
-      const q = questionMap.get(ans.questionId);
-      if (!q) continue;
+    // Duyệt TOÀN BỘ câu của đề (không chỉ câu gửi lên): câu bỏ trống vẫn tính
+    // 0 điểm để mẫu số = cả đề, tránh thổi phồng điểm khi FE skip câu chưa làm.
+    for (const q of questionMap.values()) {
+      const answered = answerMap.has(q.id);
+      const response = answerMap.get(q.id);
 
-      // Đếm tiến độ cho mọi câu học viên trả lời.
+      // Cộng total cho MỌI câu của đề; answered chỉ cho câu học viên THỰC SỰ làm.
       const key = `${q.skillId}-${q.partNumber}`;
       const item = progressCount.get(key) ?? {
         skillId: q.skillId,
         partNumber: q.partNumber,
-        count: 0,
+        answered: 0,
+        total: 0,
       };
-      item.count += 1;
+      item.total += 1;
+      if (answered) item.answered += 1;
       progressCount.set(key, item);
 
       if (
         q.questionType === QuestionType.ESSAY ||
         q.questionType === QuestionType.RECORD
       ) {
-        subjectiveItems.push({
-          questionId: q.id,
-          questionType: q.questionType,
-          content: q.content,
-          extraConfig: q.extraConfig as Record<string, unknown> | null,
-          response: ans.response,
-        });
+        if (answered) {
+          subjectiveItems.push({
+            questionId: q.id,
+            questionType: q.questionType,
+            content: q.content,
+            extraConfig: q.extraConfig as Record<string, unknown> | null,
+            response,
+          });
+        } else {
+          // Bỏ trống câu tự luận -> 0% (không tốn lượt gọi Gemini).
+          percents.push(0);
+        }
       } else {
+        // response = undefined nếu bỏ trống -> gradeQuestion trả earned 0,
+        // total = độ dài config, nên câu bỏ trống vẫn góp mẫu số.
         const r = gradeQuestion(
           {
             id: q.id,
@@ -117,22 +134,20 @@ export class ExamsService {
             questionType: q.questionType,
             extraConfig: q.extraConfig as Record<string, unknown> | null,
           },
-          ans.response,
+          response,
         );
         details.push(r);
         earnedAuto += r.earned;
         totalAuto += r.total;
+        if (r.total > 0) percents.push((r.earned / r.total) * 100);
       }
     }
 
     // Chấm tự luận qua Gemini (song song). Thiếu key -> needsManualReview.
     const aiResults = await this.aiGrading.gradeMany(subjectiveItems);
 
-    // Điểm tổng = trung bình % theo từng câu (trắc nghiệm + AI). Câu chờ chấm tay không tính.
-    const percents: number[] = [];
-    details.forEach((d) => {
-      if (d.total > 0) percents.push((d.earned / d.total) * 100);
-    });
+    // Điểm tổng = trung bình % theo từng câu. Câu chờ chấm tay (AI lỗi) không
+    // tính; câu bỏ trống đã cộng 0% ở trên nên vẫn kéo điểm xuống đúng.
     aiResults.forEach((a) => {
       if (a.aiScore !== null) percents.push(a.aiScore);
     });
@@ -165,15 +180,13 @@ export class ExamsService {
       });
       attemptId = attempt.id;
     }
-    if (
-      exam.type === ExamType.PART_PRACTICE ||
-      exam.type === ExamType.SKILL_FULL_SET
-    ) {
-      await this.progressService.increment(
-        studentId,
-        Array.from(progressCount.values()),
-      );
-    }
+    // Ghi tiến độ theo (đề, kỹ năng, phần) cho MỌI loại đề -> mỗi đề có % riêng.
+    // Đề mới (id khác) chưa có dòng nên tự về 0%.
+    await this.progressService.upsertExamProgress(
+      studentId,
+      exam.id,
+      Array.from(progressCount.values()),
+    );
 
     // Cập nhật streak cho mọi loại submit.
     await this.progressService.touchStreak(studentId);

@@ -20,11 +20,12 @@ Ba loại đề lưu **khác nhau** — FE dựa vào đây để hiển thị t
 
 | Loại đề | Mục tiêu (FE) | BE lưu gì | Cách suy ra trạng thái |
 | :-- | :-- | :-- | :-- |
-| **PART_PRACTICE** (luyện theo phần) | Biết **đã làm phần đó chưa** + thanh **tiến độ** từng phần | `student_progress.questions_answered` theo (student, skill, part) — **cộng dồn** | tiến độ = `answered / tổng câu của phần`; đã làm = `answered > 0` |
-| **SKILL_FULL_SET** (luyện theo bộ đề) | Nhãn **Đã làm / Chưa làm** cho từng đề | **1 dòng `exam_attempts`** đánh dấu hoàn thành theo `exam_set_id` | Đã làm = **tồn tại attempt** cho đề đó |
-| **MOCK_TEST** (thi thử) | **Đã thi / Chưa thi** + **điểm trung bình** | **1 dòng `exam_attempts` mỗi lần nộp** (`total_score`) | Đã thi = có attempt; điểm TB = `AVG(total_score)` các lần thi |
+| **PART_PRACTICE** (luyện theo phần) | Thanh **% hoàn thành** đề + biết **đã làm chưa** | `student_progress` theo `(student, exam, skill, part)` — mỗi dòng `answered`/`total` | % = `answered/total`; đã làm = có dòng cho `examId` |
+| **SKILL_FULL_SET** (luyện theo bộ đề) | Nhãn **Đã làm / Chưa làm** + % hoàn thành | `student_progress` theo `examId` + **1 dòng `exam_attempts`** đánh dấu hoàn thành | Đã làm = có attempt; % = `answered/total` theo `examId` |
+| **MOCK_TEST** (thi thử) | **Đã thi / Chưa thi** + **điểm trung bình** + % | `student_progress` theo `examId` + **1 dòng `exam_attempts` mỗi lần nộp** (`total_score`) | Đã thi = có attempt; điểm TB = `AVG(total_score)`; % = `answered/total` |
 
-> `exam_attempts` dùng cho **cả SKILL_FULL_SET và MOCK_TEST** (mỗi lần nộp ghi 1 dòng). **Điểm trung bình chỉ tính trên `MOCK_TEST`**; SKILL_FULL_SET chỉ cần biết đã-làm nên không dùng điểm để tính TB. **PART_PRACTICE KHÔNG ghi attempt** — chỉ tăng bộ đếm `student_progress`.
+> `student_progress` gắn theo `examId` — ghi cho **cả 3 loại đề**, mỗi đề có % riêng (`GET /progress/exams/me`). Đề mới (id khác) chưa có dòng → **0%**. Xóa đề → BE xóa luôn các dòng progress của đề đó. Chi tiết: [FE_PROGRESS.md](FE_PROGRESS.md).
+> `exam_attempts` dùng cho **cả SKILL_FULL_SET và MOCK_TEST** (mỗi lần nộp ghi 1 dòng). **Điểm trung bình chỉ tính trên `MOCK_TEST`**. **PART_PRACTICE KHÔNG ghi attempt.**
 
 ---
 
@@ -133,11 +134,11 @@ Khớp với đáp án đúng trong [QUESTION_SAMPLES.md](QUESTION_SAMPLES.md):
   ]
 }
 ```
-→ **PART_PRACTICE**: KHÔNG lưu attempt; chỉ tăng `student_progress` (skill 1, part 1, +3). Trả `autoScore` (0-100). Nếu luyện phần **Viết/Nói** → câu ESSAY/RECORD vẫn được **AI (Gemini) chấm** và trả trong `ai[]`.
+→ **PART_PRACTICE**: KHÔNG lưu attempt; ghi `student_progress` theo `examId` (`answered`/`total` cho từng part) → có % hoàn thành đề. Trả `autoScore` (0-100). Nếu luyện phần **Viết/Nói** → câu ESSAY/RECORD vẫn được **AI (Gemini) chấm** và trả trong `ai[]`.
 
 ### B1b. Đề luyện theo bộ đề (SKILL_FULL_SET) — nộp cả kỹ năng
 Body giống B1/B2 (gộp mọi câu của các part trong 1 kỹ năng).
-→ **SKILL_FULL_SET**: ghi **1 dòng `exam_attempts`** (đánh dấu đề này **đã làm**) + tăng `student_progress` các part liên quan. Nếu là bộ đề **Viết/Nói** → câu ESSAY/RECORD được **AI (Gemini) chấm** và trả trong `ai[]`. Điểm chỉ để trả review nóng, **không tính vào điểm trung bình**.
+→ **SKILL_FULL_SET**: ghi **1 dòng `exam_attempts`** (đánh dấu đề này **đã làm**) + ghi `student_progress` theo `examId` cho các part. Nếu là bộ đề **Viết/Nói** → câu ESSAY/RECORD được **AI (Gemini) chấm** và trả trong `ai[]`. Điểm chỉ để trả review nóng, **không tính vào điểm trung bình**.
 
 ### B2. Đề thi thử (MOCK_TEST) — trộn nhiều dạng
 ```json
@@ -181,17 +182,20 @@ Body giống B1/B2 (gộp mọi câu của các part trong 1 kỹ năng).
   ]
 }
 ```
-- `score` = **điểm tổng** = trung bình % theo từng câu (trắc nghiệm `earned/total*100` + AI `aiScore`). `autoScore` = riêng phần trắc nghiệm.
+- `score` = **điểm tổng** = trung bình % theo **TẤT CẢ câu của đề** (trắc nghiệm `earned/total*100` + AI `aiScore`). `autoScore` = riêng phần trắc nghiệm.
+- **Điểm tính trên toàn đề, không phải chỉ câu gửi lên**: câu học viên **bỏ trống** (không có trong `answers`) vẫn tính **0%** → điểm không bị thổi phồng khi FE bỏ qua câu chưa làm. FE có thể gửi thiếu câu, không bắt buộc gửi `-1`/`''` cho câu trống. Câu tự luận (ESSAY/RECORD) bỏ trống tính 0%, không tốn lượt gọi Gemini.
 - `details` = chi tiết trắc nghiệm; `ai` = chi tiết chấm tự luận (ESSAY/RECORD) từ Gemini.
 - `needsManualReviewCount` > 0 nếu chưa cấu hình GEMINI_API_KEY hoặc Gemini lỗi → câu đó `aiScore = null`, cần chấm tay.
-- **PART_PRACTICE** (luyện theo phần): `attemptId = null`, chỉ cập nhật `student_progress` (đã làm phần nào + tiến độ). Nếu luyện phần Viết/Nói → câu ESSAY/RECORD vẫn được **AI (Gemini) chấm** (trả `ai[]`).
-- **SKILL_FULL_SET** (luyện theo bộ đề): `attemptId` có giá trị (đánh dấu **đã làm** đề) + cập nhật `student_progress`. **Không** tính vào điểm trung bình.
+- **PART_PRACTICE** (luyện theo phần): `attemptId = null`, ghi `student_progress` theo `examId` (% hoàn thành đề). Nếu luyện phần Viết/Nói → câu ESSAY/RECORD vẫn được **AI (Gemini) chấm** (trả `ai[]`).
+- **SKILL_FULL_SET** (luyện theo bộ đề): `attemptId` có giá trị (đánh dấu **đã làm** đề) + ghi `student_progress` theo `examId`. **Không** tính vào điểm trung bình.
 - **MOCK_TEST** (thi thử): `attemptId` có giá trị, lưu `exam_attempts.total_score = score` **mỗi lần nộp** (nhiều dòng/đề) → dùng cho **đã thi/chưa thi** và **điểm trung bình** (`AVG(total_score)`).
 
 ---
 
 ## Ghi chú
 - Câu `questionId` không thuộc đề → bị bỏ qua khi chấm (không tính điểm).
+- Câu **thuộc đề nhưng không gửi lên** (bỏ trống) → tính **0%** trong điểm tổng (mẫu số = cả đề). `student_progress` **chỉ** tăng cho câu thực sự làm.
+- Giá trị "chưa trả lời" trong mảng (`-1` cho index, `''` cho chuỗi) không gây lỗi — chỉ đơn giản khác đáp án nên tính sai câu đó.
 - ORDERING chấm **tất-cả-hoặc-không** (đúng toàn bộ thứ tự mới được 1 điểm).
 - WORD_BANK / HEADING_MATCH / SPEAKER_MATCH / gap-fill / Listening P3 (statements) / Listening P4 (questions) chấm **từng ý** (mỗi ý đúng +1, tổng = số ý).
 - Streak (`/streaks/me`) tự cập nhật sau mỗi lần submit.
