@@ -182,25 +182,10 @@ export class AiGradingService {
         },
       });
     }
-
-    const questionList = questions
-      ? questions
-          .map(
-            (q, i) =>
-              `(${i + 1}) ${q.question ?? ''}${
-                typeof q.sample_answer === 'string' && q.sample_answer.trim()
-                  ? ` [Bài mẫu tham khảo: ${q.sample_answer}]`
-                  : ''
-              }`,
-          )
-          .join('\n')
-      : `Câu hỏi: ${item.content ?? ''}`;
-
     const promptText = [
       'Bạn là giám khảo APTIS Speaking. Nghe (các) đoạn ghi âm và chấm TỔNG THỂ cả phần thi theo thang CEFR (A1..C), điểm 0-100.',
       'Tiêu chí: nội dung liên quan, ngữ pháp, từ vựng, độ trôi chảy (fluency), phát âm (định tính).',
       questions ? 'Các câu hỏi của phần thi (mỗi câu có 1 ghi âm tương ứng theo thứ tự):' : '',
-      questionList,
       cfg.response_time_seconds
         ? `Thời lượng nói cho phép mỗi câu: ${cfg.response_time_seconds}s`
         : '',

@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaClient, Role } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
+import { seedReadingSets } from './reading-seed';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -253,6 +254,12 @@ async function main() {
         });
       }
     }
+
+    console.log('Đang seed 5 bộ đề Reading từ tài liệu Word...');
+    const readingResult = await seedReadingSets(prisma, adminId);
+    console.log(
+      `Đã seed ${readingResult.examCount} bộ đề Reading và ${readingResult.questionCount} câu hỏi theo part.`,
+    );
   }
 
   console.log(
