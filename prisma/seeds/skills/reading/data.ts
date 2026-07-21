@@ -1,3 +1,4 @@
+// Source mappings and normalized data for Reading full-set seeds.
 import { QuestionType } from '@prisma/client';
 
 export interface ReadingSeedQuestion {

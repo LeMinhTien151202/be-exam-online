@@ -1,6 +1,8 @@
+import 'dotenv/config';
 import { ExamType, Prisma, PrismaClient } from '@prisma/client';
-import { getPartConfig } from '../src/question-bank/question-config';
-import { READING_SEED_SETS, ReadingSeedQuestion } from './reading-seed-data';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { getPartConfig } from '../../../../src/question-bank/question-config';
+import { READING_SEED_SETS, ReadingSeedQuestion } from './data';
 
 const READING_SKILL_ID = 3;
 const READING_DURATION_MINUTES = 30;
@@ -152,4 +154,34 @@ export async function seedReadingSets(prisma: PrismaClient, adminId: number) {
   }
 
   return { examCount, questionCount };
+}
+
+async function main() {
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  });
+  try {
+    const admin = await prisma.user.findUnique({
+      where: { email: process.env.SEED_ADMIN_EMAIL || 'admin@test.com' },
+    });
+    if (!admin) {
+      throw new Error(
+        'Không tìm thấy tài khoản seed admin. Hãy chạy db:seed:core trước.',
+      );
+    }
+    const result = await seedReadingSets(prisma, admin.id);
+    console.log(JSON.stringify(result, null, 2));
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    console.error(
+      'Seed Reading thất bại:',
+      error instanceof Error ? error.message : error,
+    );
+    process.exit(1);
+  });
 }
